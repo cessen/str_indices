@@ -1,6 +1,12 @@
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64;
 
+// Which type to actually use at build time.
+#[cfg(target_arch = "x86_64")]
+pub(crate) type Chunk = x86_64::__m128i;
+#[cfg(not(any(target_arch = "x86_64")))]
+pub(crate) type Chunk = usize;
+
 /// Interface for working with chunks of bytes at a time, providing the
 /// operations needed for the functionality in str_utils.
 pub(crate) trait ByteChunk: Copy + Clone {
@@ -247,5 +253,30 @@ impl ByteChunk for x86_64::__m128i {
         let a = tmp.0.wrapping_mul(ONES) >> (7 * 8);
         let b = tmp.1.wrapping_mul(ONES) >> (7 * 8);
         (a + b) as usize
+    }
+}
+
+//=============================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn usize_flag_bytes_01() {
+        let v: usize = 0xE2_09_08_A6_E2_A6_E2_09;
+        assert_eq!(0x00_00_00_00_00_00_00_00, v.cmp_eq_byte(0x07));
+        assert_eq!(0x00_00_01_00_00_00_00_00, v.cmp_eq_byte(0x08));
+        assert_eq!(0x00_01_00_00_00_00_00_01, v.cmp_eq_byte(0x09));
+        assert_eq!(0x00_00_00_01_00_01_00_00, v.cmp_eq_byte(0xA6));
+        assert_eq!(0x01_00_00_00_01_00_01_00, v.cmp_eq_byte(0xE2));
+    }
+
+    #[test]
+    fn usize_bytes_between_127_01() {
+        let v: usize = 0x7E_09_00_A6_FF_7F_08_07;
+        assert_eq!(0x01_01_00_00_00_00_01_01, v.bytes_between_127(0x00, 0x7F));
+        assert_eq!(0x00_01_00_00_00_00_01_00, v.bytes_between_127(0x07, 0x7E));
+        assert_eq!(0x00_01_00_00_00_00_00_00, v.bytes_between_127(0x08, 0x7E));
     }
 }
