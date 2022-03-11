@@ -1,0 +1,14 @@
+[package]
+name = "str_indices"
+version = "0.1.0"
+edition = "2021"
+authors = ["Nathan Vegdahl <cessen@cessen.com>"]
+description = "Count and convert between indexing schemes on string slices."
+documentation = "https://docs.rs/str_indices"
+repository = "https://github.com/cessen/str_indices"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+keywords = ["text", "string", "nostd"]
+categories = ["text-processing"]
+
+[dependencies]
