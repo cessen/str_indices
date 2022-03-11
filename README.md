@@ -21,7 +21,7 @@ at your option.
 ## Contributing
 
 Unless you explicitly state otherwise, any contribution intentionally
-submitted for inclusion in ColorBox by you will be licensed as above,
+submitted for inclusion in Str Indices by you will be licensed as above,
 without any additional terms or conditions.
 
 This crate is no-std, doesn't allocate, and has zero dependencies, and
