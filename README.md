@@ -5,6 +5,12 @@
 
 Count and convert between different indexing schemes on utf8 string slices.
 
+The following schemes are currently supported:
+
+* Chars (or "Unicode scalar values").
+* UTF16 code units.
+* Lines, according to the line break characters specified in [Unicode Annex #14](https://www.unicode.org/reports/tr14/).
+
 
 ## License
 
