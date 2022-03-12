@@ -1,6 +1,6 @@
 //! Index by lines (all Unicode line breaks).
 //!
-//! This recognizes all line breaks defined in
+//! This module recognizes all line breaks defined in
 //! [Unicode Annex #14](https://www.unicode.org/reports/tr14/):
 //!
 //! - `U+000A`          &mdash; LF (Line Feed)
@@ -40,7 +40,7 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
         byte_idx -= 1;
     }
     let nl_count = count_breaks_internal::<Chunk>(&text.as_bytes()[..byte_idx]);
-    if is_not_crlf_middle(byte_idx, text.as_bytes()) {
+    if crate::is_not_crlf_middle(byte_idx, text.as_bytes()) {
         nl_count
     } else {
         nl_count - 1
@@ -62,15 +62,6 @@ pub fn to_byte_idx(text: &str, line_idx: usize) -> usize {
 }
 
 //-------------------------------------------------------------
-
-#[inline]
-fn is_not_crlf_middle(byte_idx: usize, text: &[u8]) -> bool {
-    if byte_idx == 0 || byte_idx >= text.len() {
-        true
-    } else {
-        (text[byte_idx] >> 6 != 0b10) && ((text[byte_idx - 1] != 0x0D) | (text[byte_idx] != 0x0A))
-    }
-}
 
 #[inline(always)]
 fn to_byte_idx_inner<T: ByteChunk>(text: &str, line_idx: usize) -> usize {

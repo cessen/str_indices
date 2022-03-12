@@ -1,10 +1,13 @@
-//! Index by lines (line feed only).
+//! Index by lines (carriage return and line feed).
 //!
 //! This module recognizes the following as line breaks:
 //!
 //! - `U+000A`          &mdash; LF (Line Feed)
+//! - `U+000D`          &mdash; CR (Carriage Return)
 //! - `U+000D` `U+000A` &mdash; CRLF (Carriage Return + Line Feed)
-//!   &mdash; by coincidence due to ignoring CR.
+//!
+//! (Note: if you only want to recognize LF and CRLF, without
+//! recognizing CR individually, see the [`lines_lf`](crate::lines_lf) module.)
 
 use crate::byte_chunk::{ByteChunk, Chunk};
 
@@ -28,7 +31,16 @@ pub fn count_breaks(text: &str) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
-    count_breaks_internal::<Chunk>(&text.as_bytes()[..byte_idx.min(text.len())])
+    let mut byte_idx = byte_idx.min(text.len());
+    while !text.is_char_boundary(byte_idx) {
+        byte_idx -= 1;
+    }
+    let nl_count = count_breaks_internal::<Chunk>(&text.as_bytes()[..byte_idx]);
+    if crate::is_not_crlf_middle(byte_idx, text.as_bytes()) {
+        nl_count
+    } else {
+        nl_count - 1
+    }
 }
 
 /// Converts from line-index to byte-index in a string slice.
@@ -56,41 +68,58 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
     let (start, middle, _) = unsafe { text.align_to::<T>() };
 
     let mut byte_count = 0;
-    let mut lf_count = 0;
+    let mut break_count = 0;
 
     // Take care of any unaligned bytes at the beginning.
-    let mut i = 0;
-    while i < start.len() && lf_count < line_idx {
-        lf_count += (start[i] == 0x0A) as usize;
-        i += 1;
+    while byte_count < start.len() && break_count < line_idx {
+        if text[byte_count] == 0x0A {
+            break_count += 1;
+        } else if text[byte_count] == 0x0D && text.get(byte_count + 1) != Some(&0x0A) {
+            break_count += 1;
+        }
+        byte_count += 1;
     }
-    byte_count += i;
 
     // Use chunks to count multiple bytes at once.
-    let mut i = 0;
+    let mut chunk_i = 0;
     let mut acc = T::zero();
     let mut acc_i = 0;
-    while i < middle.len() && (lf_count + (T::size() * (acc_i + 1))) < line_idx {
-        acc = acc.add(middle[i].cmp_eq_byte(0x0A));
+    let mut boundary_crlf_count = 0;
+    while chunk_i < middle.len()
+        && (break_count + (T::size() * (acc_i + 1)) - boundary_crlf_count) < line_idx
+    {
+        let lf_flags = middle[chunk_i].cmp_eq_byte(0x0A);
+        let cr_flags = middle[chunk_i].cmp_eq_byte(0x0D);
+        let crlf_flags = cr_flags.bitand(lf_flags.shift_back_lex(1));
+
+        acc = acc.add(lf_flags).add(cr_flags.sub(crlf_flags));
         acc_i += 1;
-        if acc_i >= T::max_acc() || (lf_count + (T::size() * (acc_i + 1))) >= line_idx {
-            lf_count += acc.sum_bytes();
+        if acc_i >= T::max_acc()
+            || (break_count + (T::size() * (acc_i + 1)) - boundary_crlf_count) >= line_idx
+        {
+            break_count += acc.sum_bytes();
             acc_i = 0;
             acc = T::zero();
         }
-        i += 1;
+        chunk_i += 1;
+        byte_count += T::size();
+
+        // Handle potential boundary CRLF.
+        boundary_crlf_count +=
+            (text[byte_count - 1] == 0x0D && text.get(byte_count) == Some(&0x0A)) as usize;
     }
-    lf_count += acc.sum_bytes();
-    byte_count += i * T::size();
+    break_count += acc.sum_bytes();
+    break_count -= boundary_crlf_count;
 
     // Take care of any unaligned bytes at the end.
-    let end = &text[byte_count..];
-    let mut i = 0;
-    while i < end.len() && lf_count < line_idx {
-        lf_count += (end[i] == 0x0A) as usize;
-        i += 1;
+    while byte_count < text.len() && break_count < line_idx {
+        if text[byte_count] == 0x0A {
+            break_count += 1;
+        } else if text[byte_count] == 0x0D && text.get(byte_count + 1) != Some(&0x0A) {
+            break_count += 1;
+        }
+        byte_count += 1;
     }
-    byte_count += i;
 
     // Finish up
     byte_count
@@ -105,30 +134,49 @@ fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
     // Get `middle` so we can do more efficient chunk-based counting.
     let (start, middle, end) = unsafe { text.align_to::<T>() };
 
+    let mut text_i = 0;
+
     let mut count = 0;
+    let mut last_was_cr = false;
 
     // Take care of unaligned bytes at the beginning.
     for byte in start.iter().copied() {
-        count += (byte == 0x0A) as usize;
+        let is_lf = byte == 0x0A;
+        let is_cr = byte == 0x0D;
+        count += (is_cr | (is_lf & !last_was_cr)) as usize;
+        last_was_cr = is_cr;
     }
+    text_i += start.len();
 
     // Take care of the middle bytes in big chunks.
     let mut i = 0;
     let mut acc = T::zero();
     for chunk in middle.iter() {
-        acc = acc.add(chunk.cmp_eq_byte(0x0A));
+        let lf_flags = chunk.cmp_eq_byte(0x0A);
+        let cr_flags = chunk.cmp_eq_byte(0x0D);
+        let crlf_flags = cr_flags.bitand(lf_flags.shift_back_lex(1));
+
+        acc = acc.add(lf_flags).add(cr_flags.sub(crlf_flags));
         i += 1;
         if i >= T::max_acc() {
             i = 0;
             count += acc.sum_bytes();
             acc = T::zero();
         }
+
+        // Handle potential CRLF across boundaries.
+        count -= ((text[text_i] == 0x0A) & last_was_cr) as usize;
+        text_i += T::size();
+        last_was_cr = text[text_i - 1] == 0x0D;
     }
     count += acc.sum_bytes();
 
     // Take care of unaligned bytes at the end.
     for byte in end.iter().copied() {
-        count += (byte == 0x0A) as usize;
+        let is_lf = byte == 0x0A;
+        let is_cr = byte == 0x0D;
+        count += (is_cr | (is_lf & !last_was_cr)) as usize;
+        last_was_cr = is_cr;
     }
 
     count
@@ -169,6 +217,13 @@ impl<'a> Iterator for LineBreakIter<'a> {
             // Handle u{000A}, u{000B}, u{000C}, and u{000D}
             if byte == 0x0A {
                 return Some(self.byte_idx);
+            } else if byte == 0x0D {
+                // Peeking ahead to check for CRLF.
+                if let Some(0x0A) = self.byte_itr.clone().next() {
+                    self.byte_itr.next();
+                    self.byte_idx += 1;
+                }
+                return Some(self.byte_idx);
             }
         }
 
@@ -189,20 +244,22 @@ mod tests {
 
     #[test]
     fn line_breaks_iter_01() {
-        let text = "\nHello\u{000D}\nせ\u{000B}か\u{000C}い\u{0085}. \
-                    There\nis something.\u{2029}";
+        let text = "\u{000A}Hello\u{000D}\u{000A}せ\u{000D}か\u{000D}い\u{0085}. \
+                    There\u{000A}is something.\u{2029}";
         let mut itr = LineBreakIter::new(text);
         assert_eq!(45, text.len());
         assert_eq!(Some(1), itr.next());
         assert_eq!(Some(8), itr.next());
+        assert_eq!(Some(12), itr.next());
+        assert_eq!(Some(16), itr.next());
         assert_eq!(Some(29), itr.next());
         assert_eq!(None, itr.next());
     }
 
     #[test]
     fn count_breaks_01() {
-        let text = "\nHello\u{000D}\nせ\u{000B}か\u{000C}い\u{0085}. \
-                    There\nis something.\u{2029}";
+        let text = "\u{000A}Hello\u{000D}\u{000A}せ\u{000B}か\u{000C}い\u{0085}. \
+                    There\u{000A}is something.\u{2029}";
         assert_eq!(45, text.len());
         assert_eq!(3, count_breaks(text));
     }

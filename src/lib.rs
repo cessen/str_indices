@@ -13,6 +13,7 @@
 mod byte_chunk;
 pub mod chars;
 pub mod lines;
+pub mod lines_crlf;
 pub mod lines_lf;
 pub mod utf16;
 
@@ -29,6 +30,15 @@ fn alignment_diff<T>(bytes: &[u8]) -> usize {
     let alignment = core::mem::align_of::<T>();
     let ptr = bytes.as_ptr() as usize;
     (alignment - ((ptr - 1) & (alignment - 1)) - 1).min(bytes.len())
+}
+
+/// Utility function used in some of the lines modules.
+#[inline(always)]
+fn is_not_crlf_middle(byte_idx: usize, text: &[u8]) -> bool {
+    byte_idx == 0
+        || byte_idx >= text.len()
+        || (text[byte_idx - 1] != 0x0D)
+        || (text[byte_idx] != 0x0A)
 }
 
 //======================================================================
