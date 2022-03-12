@@ -3,6 +3,8 @@
 
 ## [Unreleased]
 
+- Added `lines_lf` module, a line-feed-only variant of the `lines` module.
+
 
 ## [0.2.0] - 2022-03-11
 
