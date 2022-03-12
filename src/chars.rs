@@ -1,3 +1,5 @@
+//! Index by chars.
+
 use crate::byte_chunk::{ByteChunk, Chunk};
 
 /// Counts the chars in a string slice.
@@ -18,7 +20,7 @@ pub fn count(text: &str) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
-    let count = count_chars_in_bytes(&text.as_bytes()[0..(byte_idx + 1).min(text.len())]);
+    let count = count_chars_internal::<Chunk>(&text.as_bytes()[0..(byte_idx + 1).min(text.len())]);
     if byte_idx < text.len() {
         count - 1
     } else {
@@ -35,6 +37,8 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
 pub fn to_byte_idx(text: &str, char_idx: usize) -> usize {
     to_byte_idx_inner::<Chunk>(text, char_idx)
 }
+
+//-------------------------------------------------------------
 
 #[inline(always)]
 fn to_byte_idx_inner<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
@@ -87,13 +91,6 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
     } else {
         byte_count - 1
     }
-}
-
-//-------------------------------------------------------------
-
-#[inline]
-fn count_chars_in_bytes(text: &[u8]) -> usize {
-    count_chars_internal::<Chunk>(text)
 }
 
 #[inline(always)]

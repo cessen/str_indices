@@ -1,3 +1,17 @@
+//! Index by Unicode lines.
+//!
+//! This recognizes all line breaks defined in
+//! [Unicode Annex #14](https://www.unicode.org/reports/tr14/):
+//!
+//! - `U+000A`          &mdash; LF (Line Feed)
+//! - `U+000B`          &mdash; VT (Vertical Tab)
+//! - `U+000C`          &mdash; FF (Form Feed)
+//! - `U+000D`          &mdash; CR (Carriage Return)
+//! - `U+0085`          &mdash; NEL (Next Line)
+//! - `U+2028`          &mdash; Line Separator
+//! - `U+2029`          &mdash; Paragraph Separator
+//! - `U+000D` `U+000A` &mdash; CRLF (Carriage Return + Line Feed)
+
 use crate::alignment_diff;
 use crate::byte_chunk::{ByteChunk, Chunk};
 
@@ -11,7 +25,10 @@ pub fn count_breaks(text: &str) -> usize {
 
 /// Converts from byte-index to line-index in a string slice.
 ///
-/// This is equivalent to counting the line endings before the given byte.
+/// Line break characters are considered to be a part of the line they
+/// end.  And a string that ends with a line break is considered to have
+/// a final empty line.  So this function is equivalent to counting the
+/// line breaks before the specified byte.
 ///
 /// Any past-the-end index will return the last line index.
 ///
@@ -32,8 +49,9 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
 
 /// Converts from line-index to byte-index in a string slice.
 ///
-/// More specifically, this returns the index of the first byte of the given
-/// line.
+/// Returns the byte index of the start of the specified line.  Line 0 is
+/// the start of the string, and subsequent lines start immediately
+/// *after* each line break character.
 ///
 /// Any past-the-end index will return the one-past-the-end byte index.
 ///

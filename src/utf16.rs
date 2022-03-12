@@ -1,7 +1,9 @@
+//! Index by utf16 code units.
+
 use crate::byte_chunk::{ByteChunk, Chunk};
 
-/// Counts the utf16 code units that would be in `text` if it were
-/// encoded as utf16.
+/// Counts the utf16 code units that would be in a string slice if it
+/// were encoded as utf16.
 ///
 /// Runs in O(N) time.
 #[inline]
@@ -9,8 +11,8 @@ pub fn count(text: &str) -> usize {
     crate::chars::count(text) + count_surrogates_internal::<Chunk>(text.as_bytes())
 }
 
-/// Counts the utf16 surrogate pairs that would be in `text` if it were
-/// encoded as utf16.
+/// Counts the utf16 surrogate pairs that would be in a string slice if
+/// it were encoded as utf16.
 ///
 /// Runs in O(N) time.
 #[inline]

@@ -1,6 +1,14 @@
 #![no_std]
 
-//! Utility functions for utf8 string slices.
+//! Count and convert between different indexing schemes on utf8 string
+//! slices.
+//!
+//! This crate is organized into modules by indexing scheme.  Each module
+//! contains functions for counting relevant metrics for that scheme as
+//! well as functions for converting to/from byte indices.
+//!
+//! None of the functions in this crate panic: all inputs have a defined
+//! output.
 
 mod byte_chunk;
 pub mod chars;
