@@ -4,12 +4,18 @@
 ## [Unreleased]
 
 
+## [0.2.0] - 2022-03-11
+
+- Major clean up of the code and API.
+- Added minimal documentation.
+
+
 ## [0.1.0] - 2022-03-11
 
-### First Release
-
+- First Release.
 - Split off from [Ropey](https://crates.io/crates/ropey).
 
 
-[Unreleased]: https://github.com/cessen/str_indices/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/cessen/str_indices/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/cessen/str_indices/releases/tag/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/cessen/str_indices/releases/tag/v0.1.0

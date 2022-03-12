@@ -1,6 +1,6 @@
 [package]
 name = "str_indices"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Nathan Vegdahl <cessen@cessen.com>"]
 description = "Count and convert between indexing schemes on string slices."
