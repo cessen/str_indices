@@ -151,6 +151,7 @@ fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
     // Take care of the middle bytes in big chunks.
     let mut i = 0;
     let mut acc = T::zero();
+    let mut boundary_crlf_count = 0;
     for chunk in middle.iter() {
         let lf_flags = chunk.cmp_eq_byte(0x0A);
         let cr_flags = chunk.cmp_eq_byte(0x0D);
@@ -165,11 +166,12 @@ fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
         }
 
         // Handle potential CRLF across boundaries.
-        count -= ((text[text_i] == 0x0A) & last_was_cr) as usize;
+        boundary_crlf_count += ((text[text_i] == 0x0A) & last_was_cr) as usize;
         text_i += T::size();
         last_was_cr = text[text_i - 1] == 0x0D;
     }
     count += acc.sum_bytes();
+    count -= boundary_crlf_count;
 
     // Take care of unaligned bytes at the end.
     for byte in end.iter().copied() {

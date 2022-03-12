@@ -12,3 +12,6 @@ keywords = ["text", "string", "nostd"]
 categories = ["text-processing"]
 
 [dependencies]
+
+[dev-dependencies]
+proptest = "1.0"
