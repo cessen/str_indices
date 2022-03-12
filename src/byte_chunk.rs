@@ -10,15 +10,18 @@ pub(crate) type Chunk = usize;
 /// Interface for working with chunks of bytes at a time, providing the
 /// operations needed for the functionality in str_utils.
 pub(crate) trait ByteChunk: Copy + Clone {
+    /// Creates a new chunk with all bytes set to zero.
+    fn zero() -> Self;
+
+    /// Creates a new chunk with all bytes set to n.
+    fn splat(n: u8) -> Self;
+
     /// Returns the size of the chunk in bytes.
     fn size() -> usize;
 
     /// Returns the maximum number of iterations the chunk can accumulate
     /// before sum_bytes() becomes inaccurate.
     fn max_acc() -> usize;
-
-    /// Creates a new chunk with all bytes set to n.
-    fn splat(n: u8) -> Self;
 
     /// Returns whether all bytes are zero or not.
     fn is_zero(&self) -> bool;
@@ -62,6 +65,17 @@ pub(crate) trait ByteChunk: Copy + Clone {
 
 impl ByteChunk for usize {
     #[inline(always)]
+    fn zero() -> Self {
+        0
+    }
+
+    #[inline(always)]
+    fn splat(n: u8) -> Self {
+        const ONES: usize = core::usize::MAX / 0xFF;
+        ONES * n as usize
+    }
+
+    #[inline(always)]
     fn size() -> usize {
         core::mem::size_of::<usize>()
     }
@@ -69,12 +83,6 @@ impl ByteChunk for usize {
     #[inline(always)]
     fn max_acc() -> usize {
         (256 / core::mem::size_of::<usize>()) - 1
-    }
-
-    #[inline(always)]
-    fn splat(n: u8) -> Self {
-        const ONES: usize = core::usize::MAX / 0xFF;
-        ONES * n as usize
     }
 
     #[inline(always)]
@@ -159,6 +167,16 @@ impl ByteChunk for usize {
 #[cfg(target_arch = "x86_64")]
 impl ByteChunk for x86_64::__m128i {
     #[inline(always)]
+    fn zero() -> Self {
+        unsafe { x86_64::_mm_setzero_si128() }
+    }
+
+    #[inline(always)]
+    fn splat(n: u8) -> Self {
+        unsafe { x86_64::_mm_set1_epi8(n as i8) }
+    }
+
+    #[inline(always)]
     fn size() -> usize {
         core::mem::size_of::<x86_64::__m128i>()
     }
@@ -166,11 +184,6 @@ impl ByteChunk for x86_64::__m128i {
     #[inline(always)]
     fn max_acc() -> usize {
         (256 / 8) - 1
-    }
-
-    #[inline(always)]
-    fn splat(n: u8) -> Self {
-        unsafe { x86_64::_mm_set1_epi8(n as i8) }
     }
 
     #[inline(always)]

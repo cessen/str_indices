@@ -13,6 +13,7 @@
 mod byte_chunk;
 pub mod chars;
 pub mod lines;
+pub mod lines_lf;
 pub mod utf16;
 
 /// Returns the alignment difference between the start of `bytes` and the

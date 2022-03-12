@@ -59,17 +59,18 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
     }
     byte_count += i;
 
-    // Use chunks to count multiple bytes at once, using bit-fiddling magic.
+    // Use chunks to count multiple bytes at once.
     let mut i = 0;
-    let mut acc = T::splat(0);
+    let mut acc = T::zero();
     let mut acc_i = 0;
     while i < middle.len() && (char_count + (T::size() * (acc_i + 1))) <= char_idx {
         acc = acc.add(middle[i].bitand(T::splat(0xc0)).cmp_eq_byte(0x80));
         acc_i += 1;
+        // if acc_i == T::max_acc() || (char_count + (T::size() * (acc_i + 1))) >= char_idx {
         if acc_i == T::max_acc() || (char_count + (T::size() * (acc_i + 1))) >= char_idx {
             char_count += (T::size() * acc_i) - acc.sum_bytes();
             acc_i = 0;
-            acc = T::splat(0);
+            acc = T::zero();
         }
         i += 1;
     }
@@ -107,7 +108,7 @@ fn count_chars_internal<T: ByteChunk>(text: &[u8]) -> usize {
 
     // Take care of the middle bytes in big chunks.
     let mut i = 0;
-    let mut acc = T::splat(0);
+    let mut acc = T::zero();
     for chunk in middle.iter() {
         let tmp = chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80);
         acc = acc.add(tmp);
@@ -115,7 +116,7 @@ fn count_chars_internal<T: ByteChunk>(text: &[u8]) -> usize {
         if i == T::max_acc() {
             i = 0;
             inv_count += acc.sum_bytes();
-            acc = T::splat(0);
+            acc = T::zero();
         }
     }
     inv_count += acc.sum_bytes();

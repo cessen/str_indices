@@ -88,7 +88,7 @@ fn count_surrogates_internal<T: ByteChunk>(text: &[u8]) -> usize {
 
     // Take care of the middle bytes in big chunks.
     let mut i = 0;
-    let mut acc = T::splat(0);
+    let mut acc = T::zero();
     for chunk in middle.iter() {
         let tmp = chunk.bitand(T::splat(0xf0)).cmp_eq_byte(0xf0);
         acc = acc.add(tmp);
@@ -96,7 +96,7 @@ fn count_surrogates_internal<T: ByteChunk>(text: &[u8]) -> usize {
         if i == T::max_acc() {
             i = 0;
             utf16_surrogate_count += acc.sum_bytes();
-            acc = T::splat(0);
+            acc = T::zero();
         }
     }
     utf16_surrogate_count += acc.sum_bytes();

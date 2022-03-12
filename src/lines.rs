@@ -1,4 +1,4 @@
-//! Index by Unicode lines.
+//! Index by lines (all Unicode line breaks).
 //!
 //! This recognizes all line breaks defined in
 //! [Unicode Annex #14](https://www.unicode.org/reports/tr14/):
@@ -20,7 +20,7 @@ use crate::byte_chunk::{ByteChunk, Chunk};
 /// Runs in O(N) time.
 #[inline]
 pub fn count_breaks(text: &str) -> usize {
-    count_breaks_internal::<Chunk>(text)
+    count_breaks_internal::<Chunk>(text.as_bytes())
 }
 
 /// Converts from byte-index to line-index in a string slice.
@@ -39,7 +39,7 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
     while !text.is_char_boundary(byte_idx) {
         byte_idx -= 1;
     }
-    let nl_count = count_breaks(&text[..byte_idx]);
+    let nl_count = count_breaks_internal::<Chunk>(&text.as_bytes()[..byte_idx]);
     if is_not_crlf_middle(byte_idx, text.as_bytes()) {
         nl_count
     } else {
@@ -65,9 +65,7 @@ pub fn to_byte_idx(text: &str, line_idx: usize) -> usize {
 
 #[inline]
 fn is_not_crlf_middle(byte_idx: usize, text: &[u8]) -> bool {
-    debug_assert!(byte_idx <= text.len());
-
-    if byte_idx == 0 || byte_idx == text.len() {
+    if byte_idx == 0 || byte_idx >= text.len() {
         true
     } else {
         (text[byte_idx] >> 6 != 0b10) && ((text[byte_idx - 1] != 0x0D) | (text[byte_idx] != 0x0A))
@@ -113,7 +111,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, line_idx: usize) -> usize {
     byte_idx
 }
 
-/// Uses bit-fiddling magic to count line breaks really quickly.
+/// Counts the line breaks in a utf8 encoded string.
 ///
 /// The following unicode sequences are considered newlines by this function:
 /// - u{000A}        (Line Feed)
@@ -125,8 +123,8 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, line_idx: usize) -> usize {
 /// - u{2028}        (Line Separator)
 /// - u{2029}        (Paragraph Separator)
 #[inline(always)]
-fn count_breaks_internal<T: ByteChunk>(text: &str) -> usize {
-    let mut bytes = text.as_bytes();
+fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
+    let mut bytes = text;
     let mut count = 0;
 
     // Handle unaligned bytes at the start.
@@ -139,7 +137,7 @@ fn count_breaks_internal<T: ByteChunk>(text: &str) -> usize {
 
     // Count line breaks in big chunks.
     let mut i = 0;
-    let mut acc = T::splat(0);
+    let mut acc = T::zero();
     while bytes.len() >= T::size() {
         // Unsafe because the called function depends on correct alignment.
         acc = acc.add(unsafe { count_breaks_in_chunk_from_ptr::<T>(bytes) });
@@ -147,7 +145,7 @@ fn count_breaks_internal<T: ByteChunk>(text: &str) -> usize {
         if i == T::max_acc() {
             i = 0;
             count += acc.sum_bytes();
-            acc = T::splat(0);
+            acc = T::zero();
         }
         bytes = &bytes[T::size()..];
     }
@@ -218,7 +216,7 @@ unsafe fn count_breaks_in_chunk_from_ptr<T: ByteChunk>(bytes: &[u8]) -> T {
     };
     let end_i = T::size();
 
-    let mut acc = T::splat(0);
+    let mut acc = T::zero();
 
     // Calculate the flags we're going to be working with.
     let nl_1_flags = c.cmp_eq_byte(0xC2);
