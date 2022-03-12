@@ -9,7 +9,10 @@ The following schemes are currently supported:
 
 * Chars (or "Unicode scalar values").
 * UTF16 code units.
-* Lines, according to the line break characters specified in [Unicode Annex #14](https://www.unicode.org/reports/tr14/).
+* Lines, with three options for recognized line break characters:
+    * Line feed only.
+    * Line feed and carriage return.
+    * All Unicode line break characters, as specified in [Unicode Annex #14](https://www.unicode.org/reports/tr14/).
 
 
 ## License
