@@ -15,3 +15,10 @@ categories = ["text-processing"]
 
 [dev-dependencies]
 proptest = "1.0"
+criterion = { version = "0.3", features = ["html_reports"] }
+
+#-----------------------------------------
+
+[[bench]]
+name = "all"
+harness = false
