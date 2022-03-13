@@ -36,15 +36,6 @@ macro_rules! bench_chars {
     };
 }
 
-fn std_from_byte_idx(text: &str, mut byte_idx: usize) -> usize {
-    // Find the beginning of the code point.
-    while !text.is_char_boundary(byte_idx) {
-        byte_idx -= 1;
-    }
-    // Count the number of chars until the char that begins at `byte_idx`.
-    text.char_indices().take_while(|(i, _)| *i < byte_idx).count()
-}
-
 macro_rules! bench_chars_std {
     ($text:ident, $suite_fn_name:ident, $suite_name_str:literal) => {
         fn $suite_fn_name(c: &mut Criterion) {
@@ -59,7 +50,16 @@ macro_rules! bench_chars_std {
             group.bench_function("from_byte_idx", |bench| {
                 let idx = $text.len() - 1;
                 bench.iter(|| {
-                    black_box(std_from_byte_idx($text, idx));
+                    black_box({
+                        let mut byte_idx = idx;
+                        // Find the beginning of the code point.
+                        while !$text.is_char_boundary(byte_idx) {
+                            byte_idx -= 1;
+                        }
+                        // Count the number of chars until the
+                        // char that begins at `byte_idx`.
+                        (&$text[..byte_idx]).chars().count()
+                    })
                 })
             });
 
