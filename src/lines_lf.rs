@@ -134,48 +134,6 @@ fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
     count
 }
 
-//-------------------------------------------------------------
-
-/// An iterator that yields the byte indices of line breaks in a string.
-/// A line break in this case is the point immediately *after* a newline
-/// character.
-///
-/// The following unicode sequences are considered newlines by this function:
-/// - u{000A}        (Line Feed)
-#[allow(unused)] // Used in tests, as reference solution.
-struct LineBreakIter<'a> {
-    byte_itr: core::str::Bytes<'a>,
-    byte_idx: usize,
-}
-
-#[allow(unused)]
-impl<'a> LineBreakIter<'a> {
-    #[inline]
-    fn new(text: &str) -> LineBreakIter {
-        LineBreakIter {
-            byte_itr: text.bytes(),
-            byte_idx: 0,
-        }
-    }
-}
-
-impl<'a> Iterator for LineBreakIter<'a> {
-    type Item = usize;
-
-    #[inline]
-    fn next(&mut self) -> Option<usize> {
-        while let Some(byte) = self.byte_itr.next() {
-            self.byte_idx += 1;
-            // Handle u{000A}, u{000B}, u{000C}, and u{000D}
-            if byte == 0x0A {
-                return Some(self.byte_idx);
-            }
-        }
-
-        return None;
-    }
-}
-
 //=============================================================
 
 #[cfg(test)]
@@ -188,36 +146,11 @@ mod tests {
                               we're alive?\nこんにちは、みんなさん！";
 
     #[test]
-    fn line_breaks_iter_01() {
-        let text = "\nHello\u{000D}\nせ\u{000B}か\u{000C}い\u{0085}. \
-                    There\nis something.\u{2029}";
-        let mut itr = LineBreakIter::new(text);
-        assert_eq!(45, text.len());
-        assert_eq!(Some(1), itr.next());
-        assert_eq!(Some(8), itr.next());
-        assert_eq!(Some(29), itr.next());
-        assert_eq!(None, itr.next());
-    }
-
-    #[test]
     fn count_breaks_01() {
         let text = "\nHello\u{000D}\nせ\u{000B}か\u{000C}い\u{0085}. \
                     There\nis something.\u{2029}";
         assert_eq!(45, text.len());
         assert_eq!(3, count_breaks(text));
-    }
-
-    #[test]
-    fn count_breaks_02() {
-        let text = "\u{000A}Hello world!  This is a longer text.\u{000D}\u{000A}\u{000D}To better test that skipping by usize doesn't mess things up.\u{000B}Hello せかい!\u{000C}\u{0085}Yet more text.  How boring.\u{2028}Hi.\u{2029}\u{000A}Hello world!  This is a longer text.\u{000D}\u{000A}\u{000D}To better test that skipping by usize doesn't mess things up.\u{000B}Hello せかい!\u{000C}\u{0085}Yet more text.  How boring.\u{2028}Hi.\u{2029}\u{000A}Hello world!  This is a longer text.\u{000D}\u{000A}\u{000D}To better test that skipping by usize doesn't mess things up.\u{000B}Hello せかい!\u{000C}\u{0085}Yet more text.  How boring.\u{2028}Hi.\u{2029}\u{000A}Hello world!  This is a longer text.\u{000D}\u{000A}\u{000D}To better test that skipping by usize doesn't mess things up.\u{000B}Hello せかい!\u{000C}\u{0085}Yet more text.  How boring.\u{2028}Hi.\u{2029}";
-        assert_eq!(count_breaks(text), LineBreakIter::new(text).count());
-    }
-
-    #[test]
-    fn count_breaks_03() {
-        let bytes = &[0x0Au8; 723];
-        let text = core::str::from_utf8(bytes).unwrap();
-        assert_eq!(count_breaks(text), LineBreakIter::new(text).count());
     }
 
     #[test]
