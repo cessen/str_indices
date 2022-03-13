@@ -183,7 +183,7 @@ impl ByteChunk for x86_64::__m128i {
 
     #[inline(always)]
     fn max_acc() -> usize {
-        (256 / 8) - 1
+        255
     }
 
     #[inline(always)]
@@ -261,11 +261,9 @@ impl ByteChunk for x86_64::__m128i {
 
     #[inline(always)]
     fn sum_bytes(&self) -> usize {
-        const ONES: u64 = core::u64::MAX / 0xFF;
-        let tmp = unsafe { core::mem::transmute::<Self, (u64, u64)>(*self) };
-        let a = tmp.0.wrapping_mul(ONES) >> (7 * 8);
-        let b = tmp.1.wrapping_mul(ONES) >> (7 * 8);
-        (a + b) as usize
+        let half_sum = unsafe { x86_64::_mm_sad_epu8(*self, x86_64::_mm_setzero_si128()) };
+        let (low, high) = unsafe { core::mem::transmute::<Self, (u64, u64)>(half_sum) };
+        (low + high) as usize
     }
 }
 
@@ -291,5 +289,19 @@ mod tests {
         assert_eq!(0x01_01_00_00_00_00_01_01, v.bytes_between_127(0x00, 0x7F));
         assert_eq!(0x00_01_00_00_00_00_01_00, v.bytes_between_127(0x07, 0x7E));
         assert_eq!(0x00_01_00_00_00_00_00_00, v.bytes_between_127(0x08, 0x7E));
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn sum_bytes_x86_64() {
+        use core::arch::x86_64::__m128i as T;
+
+        let ones = T::splat(1);
+        let mut acc = T::zero();
+        for i in 0..T::max_acc() {
+            acc = acc.add(ones);
+        }
+
+        assert_eq!(acc.sum_bytes(), T::size() * T::max_acc());
     }
 }
