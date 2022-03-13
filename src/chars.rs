@@ -20,7 +20,9 @@ pub fn count(text: &str) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
-    let count = count_chars_internal::<Chunk>(&text.as_bytes()[0..(byte_idx + 1).min(text.len())]);
+    let count = count_chars_internal::<Chunk>(
+        &text.as_bytes()[0..(byte_idx.saturating_add(1)).min(text.len())],
+    );
     if byte_idx < text.len() {
         count - 1
     } else {

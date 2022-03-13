@@ -1,0 +1,25 @@
+[package]
+name = "str_indices-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
+
+[dependencies.str_indices]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "random_strings"
+path = "fuzz_targets/random_strings.rs"
+test = false
+doc = false
