@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate proptest;
 
-use proptest::string::string_regex;
 use proptest::test_runner::Config;
 use str_indices::lines;
 
@@ -132,7 +131,6 @@ proptest! {
 
     #[test]
     fn pt_to_byte_idx(ref text in "[aあ🐸\\u{000A}\\u{000B}\\u{000C}\\u{000D}\\u{0085}\\u{2028}\\u{2029}]{0, 200}", idx in 0usize..300) {
-        let line_count = from_byte_idx_slow(text, text.len());
         assert_eq!(
             to_byte_idx_slow(text, idx),
             lines::to_byte_idx(text, idx),

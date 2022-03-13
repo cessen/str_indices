@@ -298,7 +298,7 @@ mod tests {
 
         let ones = T::splat(1);
         let mut acc = T::zero();
-        for i in 0..T::max_acc() {
+        for _ in 0..T::max_acc() {
             acc = acc.add(ones);
         }
 
