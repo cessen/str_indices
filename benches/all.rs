@@ -20,35 +20,31 @@ macro_rules! bench_chars {
             });
 
             group.bench_function("from_byte_idx", |bench| {
-                let idx = $text.len() - 1;
+                let idx = $text.len();
                 bench.iter(|| {
                     black_box(chars::from_byte_idx($text, idx));
                 })
             });
 
             group.bench_function("to_byte_idx", |bench| {
-                let idx = chars::count($text) - 1;
+                let idx = chars::count($text);
                 bench.iter(|| {
                     black_box(chars::to_byte_idx($text, idx));
                 })
             });
-        }
-    };
-}
 
-macro_rules! bench_chars_std {
-    ($text:ident, $suite_fn_name:ident, $suite_name_str:literal) => {
-        fn $suite_fn_name(c: &mut Criterion) {
-            let mut group = c.benchmark_group($suite_name_str);
+            //----------------------------------------------------
+            // Equivalent implementations using stdlib functions,
+            // for performance comparisons.
 
-            group.bench_function("count", |bench| {
+            group.bench_function("count_std", |bench| {
                 bench.iter(|| {
                     black_box($text.chars().count());
                 })
             });
 
-            group.bench_function("from_byte_idx", |bench| {
-                let idx = $text.len() - 1;
+            group.bench_function("from_byte_idx_std", |bench| {
+                let idx = $text.len();
                 bench.iter(|| {
                     black_box({
                         let mut byte_idx = idx;
@@ -63,8 +59,8 @@ macro_rules! bench_chars_std {
                 })
             });
 
-            group.bench_function("to_byte_idx", |bench| {
-                let idx = chars::count($text) - 1;
+            group.bench_function("to_byte_idx_std", |bench| {
+                let idx = chars::count($text) - 1; // Minus 1 so we can unwrap below.
                 bench.iter(|| {
                     black_box($text.char_indices().skip(idx).next().unwrap().0);
                 })
@@ -91,14 +87,14 @@ macro_rules! bench_utf16 {
             });
 
             group.bench_function("from_byte_idx", |bench| {
-                let idx = $text.len() - 1;
+                let idx = $text.len();
                 bench.iter(|| {
                     black_box(utf16::from_byte_idx($text, idx));
                 })
             });
 
             group.bench_function("to_byte_idx", |bench| {
-                let idx = $text.len() - 1;
+                let idx = utf16::count($text);
                 bench.iter(|| {
                     black_box(utf16::to_byte_idx($text, idx));
                 })
@@ -124,6 +120,18 @@ macro_rules! bench_lines {
                 })
             });
 
+            // Version implemented with stdlib functions,
+            // for performance comparisons.  Note: this
+            // isn't exactly identical in behavior, since
+            // stdlib ignores document-final line breaks.
+            // But it should be close enough for perf
+            // comparisons.
+            group.bench_function("count_breaks_lf_std", |bench| {
+                bench.iter(|| {
+                    black_box($text.lines().count());
+                })
+            });
+
             group.bench_function("count_breaks_crlf", |bench| {
                 bench.iter(|| {
                     black_box(lines_crlf::count_breaks($text));
@@ -131,42 +139,42 @@ macro_rules! bench_lines {
             });
 
             group.bench_function("from_byte_idx", |bench| {
-                let idx = $text.len() - 1;
+                let idx = $text.len();
                 bench.iter(|| {
                     black_box(lines::from_byte_idx($text, idx));
                 })
             });
 
             group.bench_function("from_byte_idx_lf", |bench| {
-                let idx = $text.len() - 1;
+                let idx = $text.len();
                 bench.iter(|| {
                     black_box(lines_lf::from_byte_idx($text, idx));
                 })
             });
 
             group.bench_function("from_byte_idx_crlf", |bench| {
-                let idx = $text.len() - 1;
+                let idx = $text.len();
                 bench.iter(|| {
                     black_box(lines_crlf::from_byte_idx($text, idx));
                 })
             });
 
             group.bench_function("to_byte_idx", |bench| {
-                let idx = $text.len() - 1;
+                let idx = lines::count_breaks($text) + 1;
                 bench.iter(|| {
                     black_box(lines::to_byte_idx($text, idx));
                 })
             });
 
             group.bench_function("to_byte_idx_lf", |bench| {
-                let idx = $text.len() - 1;
+                let idx = lines_lf::count_breaks($text) + 1;
                 bench.iter(|| {
                     black_box(lines_lf::to_byte_idx($text, idx));
                 })
             });
 
             group.bench_function("to_byte_idx_crlf", |bench| {
-                let idx = $text.len() - 1;
+                let idx = lines_crlf::count_breaks($text) + 1;
                 bench.iter(|| {
                     black_box(lines_crlf::to_byte_idx($text, idx));
                 })
@@ -182,12 +190,6 @@ bench_chars!(EN_1000, chars_english_1000, "chars_english_1000");
 bench_chars!(JP_100, chars_japanese_100, "chars_japanese_100");
 bench_chars!(JP_1000, chars_japanese_1000, "chars_japanese_1000");
 bench_chars!(C_1000, chars_c_source_1000, "chars_c_source_1000");
-
-bench_chars_std!(EN_100, chars_english_100_std, "chars_english_100_std");
-bench_chars_std!(EN_1000, chars_english_1000_std, "chars_english_1000_std");
-bench_chars_std!(JP_100, chars_japanese_100_std, "chars_japanese_100_std");
-bench_chars_std!(JP_1000, chars_japanese_1000_std, "chars_japanese_1000_std");
-bench_chars_std!(C_1000, chars_c_source_1000_std, "chars_c_source_1000_std");
 
 bench_utf16!(EN_100, utf16_english_100, "utf16_english_100");
 bench_utf16!(EN_1000, utf16_english_1000, "utf16_english_1000");
@@ -210,11 +212,6 @@ criterion_group!(
     chars_japanese_100,
     chars_japanese_1000,
     chars_c_source_1000,
-    chars_english_100_std,
-    chars_english_1000_std,
-    chars_japanese_100_std,
-    chars_japanese_1000_std,
-    chars_c_source_1000_std,
     utf16_english_100,
     utf16_english_1000,
     utf16_japanese_100,
