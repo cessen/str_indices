@@ -59,38 +59,54 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
     let mut lf_count = 0;
 
     // Take care of any unaligned bytes at the beginning.
-    let mut i = 0;
-    while i < start.len() && lf_count < line_idx {
-        lf_count += (start[i] == 0x0A) as usize;
-        i += 1;
-    }
-    byte_count += i;
-
-    // Use chunks to count multiple bytes at once.
-    let mut i = 0;
-    let mut acc = T::zero();
-    let mut acc_i = 0;
-    while i < middle.len() && (lf_count + (T::size() * (acc_i + 1))) < line_idx {
-        acc = acc.add(middle[i].cmp_eq_byte(0x0A));
-        acc_i += 1;
-        if acc_i >= T::max_acc() || (lf_count + (T::size() * (acc_i + 1))) >= line_idx {
-            lf_count += acc.sum_bytes();
-            acc_i = 0;
-            acc = T::zero();
+    for byte in start.iter() {
+        if lf_count == line_idx {
+            break;
         }
-        i += 1;
+        lf_count += (*byte == 0x0A) as usize;
+        byte_count += 1;
     }
-    lf_count += acc.sum_bytes();
-    byte_count += i * T::size();
+
+    // Process chunks in the fast path.
+    let mut chunks = middle;
+    let mut max_round_len = (line_idx - lf_count) / T::max_acc();
+    while !chunks.is_empty() && max_round_len > 0 {
+        // Choose the largest number of chunks we can do this round
+        // that will neither overflow `max_acc` nor blast past the
+        // remaining line breaks we're looking for.
+        let round_len = T::max_acc().min(max_round_len).min(chunks.len());
+        max_round_len -= round_len;
+        let round = &chunks[..round_len];
+        chunks = &chunks[round_len..];
+
+        // Process the chunks in this round.
+        let mut acc = T::zero();
+        for chunk in round.iter() {
+            acc = acc.add(chunk.cmp_eq_byte(0x0A));
+        }
+        lf_count += acc.sum_bytes();
+        byte_count += T::size() * round_len;
+    }
+
+    // Process chunks in the slow path.
+    for chunk in chunks.iter() {
+        let new_lf_count = lf_count + chunk.cmp_eq_byte(0x0A).sum_bytes();
+        if new_lf_count >= line_idx {
+            break;
+        }
+        lf_count = new_lf_count;
+        byte_count += T::size();
+    }
 
     // Take care of any unaligned bytes at the end.
     let end = &text[byte_count..];
-    let mut i = 0;
-    while i < end.len() && lf_count < line_idx {
-        lf_count += (end[i] == 0x0A) as usize;
-        i += 1;
+    for byte in end.iter() {
+        if lf_count == line_idx {
+            break;
+        }
+        lf_count += (*byte == 0x0A) as usize;
+        byte_count += 1;
     }
-    byte_count += i;
 
     // Finish up
     byte_count
