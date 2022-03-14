@@ -28,7 +28,8 @@ pub fn count_breaks(text: &str) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
-    count_breaks_internal::<Chunk>(&text.as_bytes()[..byte_idx.min(text.len())])
+    let i = byte_idx.min(text.len());
+    count_breaks_internal::<Chunk>(&text.as_bytes()[..i])
 }
 
 /// Converts from line-index to byte-index in a string slice.

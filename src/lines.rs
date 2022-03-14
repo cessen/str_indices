@@ -35,12 +35,12 @@ pub fn count_breaks(text: &str) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
-    let mut byte_idx = byte_idx.min(text.len());
-    while !text.is_char_boundary(byte_idx) {
-        byte_idx -= 1;
+    let mut i = byte_idx.min(text.len());
+    while !text.is_char_boundary(i) {
+        i -= 1;
     }
-    let nl_count = count_breaks_internal::<Chunk>(&text.as_bytes()[..byte_idx]);
-    if crate::is_not_crlf_middle(byte_idx, text.as_bytes()) {
+    let nl_count = count_breaks_internal::<Chunk>(&text.as_bytes()[..i]);
+    if crate::is_not_crlf_middle(i, text.as_bytes()) {
         nl_count
     } else {
         nl_count - 1
