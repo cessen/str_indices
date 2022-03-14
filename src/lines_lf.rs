@@ -108,27 +108,22 @@ fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
     let mut count = 0;
 
     // Take care of unaligned bytes at the beginning.
-    for byte in start.iter().copied() {
-        count += (byte == 0x0A) as usize;
+    for byte in start.iter() {
+        count += (*byte == 0x0A) as usize;
     }
 
     // Take care of the middle bytes in big chunks.
-    let mut i = 0;
-    let mut acc = T::zero();
-    for chunk in middle.iter() {
-        acc = acc.add(chunk.cmp_eq_byte(0x0A));
-        i += 1;
-        if i >= T::max_acc() {
-            i = 0;
-            count += acc.sum_bytes();
-            acc = T::zero();
+    for chunks in middle.chunks(T::max_acc()) {
+        let mut acc = T::zero();
+        for chunk in chunks.iter() {
+            acc = acc.add(chunk.cmp_eq_byte(0x0A));
         }
+        count += acc.sum_bytes();
     }
-    count += acc.sum_bytes();
 
     // Take care of unaligned bytes at the end.
-    for byte in end.iter().copied() {
-        count += (byte == 0x0A) as usize;
+    for byte in end.iter() {
+        count += (*byte == 0x0A) as usize;
     }
 
     count

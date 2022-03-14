@@ -109,19 +109,14 @@ fn count_chars_internal<T: ByteChunk>(text: &[u8]) -> usize {
     }
 
     // Take care of the middle bytes in big chunks.
-    let mut i = 0;
-    let mut acc = T::zero();
-    for chunk in middle.iter() {
-        let tmp = chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80);
-        acc = acc.add(tmp);
-        i += 1;
-        if i == T::max_acc() {
-            i = 0;
-            inv_count += acc.sum_bytes();
-            acc = T::zero();
+    for chunks in middle.chunks(T::max_acc()) {
+        let mut acc = T::zero();
+        for chunk in chunks.iter() {
+            let tmp = chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80);
+            acc = acc.add(tmp);
         }
+        inv_count += acc.sum_bytes();
     }
-    inv_count += acc.sum_bytes();
 
     // Take care of unaligned bytes at the end.
     for byte in end.iter() {

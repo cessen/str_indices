@@ -134,46 +134,40 @@ fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
     // Get `middle` so we can do more efficient chunk-based counting.
     let (start, middle, end) = unsafe { text.align_to::<T>() };
 
-    let mut text_i = 0;
-
     let mut count = 0;
-    let mut last_was_cr = false;
 
     // Take care of unaligned bytes at the beginning.
+    let mut last_was_cr = false;
     for byte in start.iter().copied() {
         let is_lf = byte == 0x0A;
         let is_cr = byte == 0x0D;
         count += (is_cr | (is_lf & !last_was_cr)) as usize;
         last_was_cr = is_cr;
     }
-    text_i += start.len();
 
     // Take care of the middle bytes in big chunks.
-    let mut i = 0;
-    let mut acc = T::zero();
-    let mut boundary_crlf_count = 0;
-    for chunk in middle.iter() {
-        let lf_flags = chunk.cmp_eq_byte(0x0A);
-        let cr_flags = chunk.cmp_eq_byte(0x0D);
-        let crlf_flags = cr_flags.bitand(lf_flags.shift_back_lex(1));
-
-        acc = acc.add(lf_flags).add(cr_flags.sub(crlf_flags));
-        i += 1;
-        if i >= T::max_acc() {
-            i = 0;
-            count += acc.sum_bytes();
-            acc = T::zero();
+    for chunks in middle.chunks(T::max_acc()) {
+        let mut acc = T::zero();
+        for chunk in chunks.iter() {
+            let lf_flags = chunk.cmp_eq_byte(0x0A);
+            let cr_flags = chunk.cmp_eq_byte(0x0D);
+            let crlf_flags = cr_flags.bitand(lf_flags.shift_back_lex(1));
+            acc = acc.add(lf_flags).add(cr_flags.sub(crlf_flags));
         }
-
-        // Handle potential CRLF across boundaries.
-        boundary_crlf_count += ((text[text_i] == 0x0A) & last_was_cr) as usize;
-        text_i += T::size();
-        last_was_cr = text[text_i - 1] == 0x0D;
+        count += acc.sum_bytes();
     }
-    count += acc.sum_bytes();
-    count -= boundary_crlf_count;
+
+    // Check chunk boundaries for CRLF.
+    let mut i = start.len();
+    while i < (text.len() - end.len()) {
+        if text[i] == 0x0A {
+            count -= (text.get(i.saturating_sub(1)) == Some(&0x0D)) as usize;
+        }
+        i += T::size();
+    }
 
     // Take care of unaligned bytes at the end.
+    let mut last_was_cr = text.get((text.len() - end.len()).saturating_sub(1)) == Some(&0x0D);
     for byte in end.iter().copied() {
         let is_lf = byte == 0x0A;
         let is_cr = byte == 0x0D;

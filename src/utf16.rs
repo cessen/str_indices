@@ -87,19 +87,14 @@ fn count_surrogates_internal<T: ByteChunk>(text: &[u8]) -> usize {
     }
 
     // Take care of the middle bytes in big chunks.
-    let mut i = 0;
-    let mut acc = T::zero();
-    for chunk in middle.iter() {
-        let tmp = chunk.bitand(T::splat(0xf0)).cmp_eq_byte(0xf0);
-        acc = acc.add(tmp);
-        i += 1;
-        if i == T::max_acc() {
-            i = 0;
-            utf16_surrogate_count += acc.sum_bytes();
-            acc = T::zero();
+    for chunks in middle.chunks(T::max_acc()) {
+        let mut acc = T::zero();
+        for chunk in chunks.iter() {
+            let tmp = chunk.bitand(T::splat(0xf0)).cmp_eq_byte(0xf0);
+            acc = acc.add(tmp);
         }
+        utf16_surrogate_count += acc.sum_bytes();
     }
-    utf16_surrogate_count += acc.sum_bytes();
 
     // Take care of unaligned bytes at the end.
     for byte in end.iter() {
