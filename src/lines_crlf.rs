@@ -71,53 +71,75 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
     let mut break_count = 0;
 
     // Take care of any unaligned bytes at the beginning.
-    while byte_count < start.len() && break_count < line_idx {
-        if text[byte_count] == 0x0A
-            || (text[byte_count] == 0x0D && text.get(byte_count + 1) != Some(&0x0A))
-        {
-            break_count += 1;
+    for byte in start.iter() {
+        if break_count == line_idx {
+            break;
         }
+        break_count +=
+            (*byte == 0x0A || (*byte == 0x0D && text.get(byte_count + 1) != Some(&0x0A))) as usize;
         byte_count += 1;
     }
 
-    // Use chunks to count multiple bytes at once.
-    let mut chunk_i = 0;
-    let mut acc = T::zero();
-    let mut acc_i = 0;
-    let mut boundary_crlf_count = 0;
-    while chunk_i < middle.len()
-        && (break_count + (T::size() * (acc_i + 1)) - boundary_crlf_count) < line_idx
-    {
-        let lf_flags = middle[chunk_i].cmp_eq_byte(0x0A);
-        let cr_flags = middle[chunk_i].cmp_eq_byte(0x0D);
-        let crlf_flags = cr_flags.bitand(lf_flags.shift_back_lex(1));
+    // Process chunks in the fast path.
+    let mut chunks = middle;
+    let mut max_round_len = (line_idx - break_count) / T::max_acc();
+    while !chunks.is_empty() && max_round_len > 0 {
+        // Choose the largest number of chunks we can do this round
+        // that will neither overflow `max_acc` nor blast past the
+        // remaining line breaks we're looking for.
+        let round_len = T::max_acc().min(max_round_len).min(chunks.len());
+        max_round_len -= round_len;
+        let round = &chunks[..round_len];
+        chunks = &chunks[round_len..];
 
-        acc = acc.add(lf_flags).add(cr_flags.sub(crlf_flags));
-        acc_i += 1;
-        if acc_i >= T::max_acc()
-            || (break_count + (T::size() * (acc_i + 1)) - boundary_crlf_count) >= line_idx
-        {
-            break_count += acc.sum_bytes();
-            acc_i = 0;
-            acc = T::zero();
+        // Process the chunks in this round.
+        let mut acc = T::zero();
+        for chunk in round.iter() {
+            let lf_flags = chunk.cmp_eq_byte(0x0A);
+            let cr_flags = chunk.cmp_eq_byte(0x0D);
+            let crlf_flags = cr_flags.bitand(lf_flags.shift_back_lex(1));
+            acc = acc.add(lf_flags).add(cr_flags.sub(crlf_flags));
         }
-        chunk_i += 1;
-        byte_count += T::size();
+        break_count += acc.sum_bytes();
 
-        // Handle potential boundary CRLF.
-        boundary_crlf_count +=
-            (text[byte_count - 1] == 0x0D && text.get(byte_count) == Some(&0x0A)) as usize;
+        // Handle CRLFs at chunk boundaries in this round.
+        let mut i = byte_count;
+        while i < (byte_count + T::size() * round_len) {
+            i += T::size();
+            break_count -= (text[i - 1] == 0x0D && text.get(i) == Some(&0x0A)) as usize;
+        }
+
+        byte_count += T::size() * round_len;
     }
-    break_count += acc.sum_bytes();
-    break_count -= boundary_crlf_count;
+
+    // Process chunks in the slow path.
+    for chunk in chunks.iter() {
+        let breaks = {
+            let lf_flags = chunk.cmp_eq_byte(0x0A);
+            let cr_flags = chunk.cmp_eq_byte(0x0D);
+            let crlf_flags = cr_flags.bitand(lf_flags.shift_back_lex(1));
+            lf_flags.add(cr_flags.sub(crlf_flags)).sum_bytes()
+        };
+        let boundary_crlf = {
+            let i = byte_count + T::size();
+            (text[i - 1] == 0x0D && text.get(i) == Some(&0x0A)) as usize
+        };
+        let new_break_count = break_count + breaks - boundary_crlf;
+        if new_break_count >= line_idx {
+            break;
+        }
+        break_count = new_break_count;
+        byte_count += T::size();
+    }
 
     // Take care of any unaligned bytes at the end.
-    while byte_count < text.len() && break_count < line_idx {
-        if text[byte_count] == 0x0A
-            || (text[byte_count] == 0x0D && text.get(byte_count + 1) != Some(&0x0A))
-        {
-            break_count += 1;
+    let end = &text[byte_count..];
+    for byte in end.iter() {
+        if break_count == line_idx {
+            break;
         }
+        break_count +=
+            (*byte == 0x0A || (*byte == 0x0D && text.get(byte_count + 1) != Some(&0x0A))) as usize;
         byte_count += 1;
     }
 
