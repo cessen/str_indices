@@ -80,7 +80,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
     // Process chunks in the fast path.
     let mut chunks = middle;
     let mut max_round_len = (line_idx - break_count) / T::MAX_ACC;
-    while !chunks.is_empty() && max_round_len > 0 {
+    while max_round_len > 0 && !chunks.is_empty() {
         // Choose the largest number of chunks we can do this round
         // that will neither overflow `max_acc` nor blast past the
         // remaining line breaks we're looking for.
