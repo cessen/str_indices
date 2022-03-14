@@ -7,7 +7,7 @@ use crate::byte_chunk::{ByteChunk, Chunk};
 /// Runs in O(N) time.
 #[inline]
 pub fn count(text: &str) -> usize {
-    count_chars_internal::<Chunk>(text.as_bytes())
+    count_internal::<Chunk>(text.as_bytes())
 }
 
 /// Converts from byte-index to char-index in a string slice.
@@ -20,14 +20,11 @@ pub fn count(text: &str) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
-    let count = count_chars_internal::<Chunk>(
-        &text.as_bytes()[0..(byte_idx.saturating_add(1)).min(text.len())],
-    );
-    if byte_idx < text.len() {
-        count - 1
-    } else {
-        count
+    let mut i = byte_idx.min(text.len());
+    while !text.is_char_boundary(i) {
+        i -= 1;
     }
+    count_internal::<Chunk>(&text.as_bytes()[0..i])
 }
 
 /// Converts from char-index to byte-index in a string slice.
@@ -108,7 +105,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
 }
 
 #[inline(always)]
-fn count_chars_internal<T: ByteChunk>(text: &[u8]) -> usize {
+pub(crate) fn count_internal<T: ByteChunk>(text: &[u8]) -> usize {
     // Get `middle` for more efficient chunk-based counting.
     let (start, middle, end) = unsafe { text.align_to::<T>() };
 

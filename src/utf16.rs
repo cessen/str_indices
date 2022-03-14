@@ -8,7 +8,8 @@ use crate::byte_chunk::{ByteChunk, Chunk};
 /// Runs in O(N) time.
 #[inline]
 pub fn count(text: &str) -> usize {
-    crate::chars::count(text) + count_surrogates_internal::<Chunk>(text.as_bytes())
+    crate::chars::count_internal::<Chunk>(text.as_bytes())
+        + count_surrogates_internal::<Chunk>(text.as_bytes())
 }
 
 /// Counts the utf16 surrogate pairs that would be in a string slice if
@@ -30,8 +31,12 @@ pub fn count_surrogates(text: &str) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
-    crate::chars::from_byte_idx(text, byte_idx)
-        + count_surrogates_internal::<Chunk>(&text.as_bytes()[..byte_idx.min(text.len())])
+    let mut i = byte_idx.min(text.len());
+    while !text.is_char_boundary(i) {
+        i -= 1;
+    }
+    let slice = &text.as_bytes()[..i];
+    crate::chars::count_internal::<Chunk>(slice) + count_surrogates_internal::<Chunk>(slice)
 }
 
 /// Converts from utf16-code-unit-index to byte-index in a string slice.
@@ -44,27 +49,79 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn to_byte_idx(text: &str, utf16_idx: usize) -> usize {
-    // TODO: optimized version.  This is pretty slow.
-    let mut broke = false;
-    let mut byte_i = 0;
-    let mut utf16_i = 0;
-    for (i, c) in text.char_indices() {
-        utf16_i += c.len_utf16();
-        byte_i = i;
-        if utf16_i > utf16_idx {
-            broke = true;
-            break;
-        }
-    }
-
-    if !broke {
-        text.len()
-    } else {
-        byte_i
-    }
+    to_byte_idx_inner::<Chunk>(text, utf16_idx)
 }
 
 //-------------------------------------------------------------
+
+#[inline(always)]
+fn to_byte_idx_inner<T: ByteChunk>(text: &str, utf16_idx: usize) -> usize {
+    // Get `middle` so we can do more efficient chunk-based counting.
+    // We can't use this to get `end`, however, because the start index of
+    // `end` actually depends on the accumulating char counts during the
+    // counting process.
+    let (start, middle, _) = unsafe { text.as_bytes().align_to::<T>() };
+
+    let mut byte_count = 0;
+    let mut utf16_count = 0;
+
+    // Take care of any unaligned bytes at the beginning.
+    for byte in start.iter() {
+        utf16_count += ((*byte & 0xC0) != 0x80) as usize + ((byte & 0xf0) == 0xf0) as usize;
+        if utf16_count > utf16_idx {
+            break;
+        }
+        byte_count += 1;
+    }
+
+    // Process chunks in the fast path.
+    let mut chunks = middle;
+    let mut max_round_len = utf16_idx.saturating_sub(utf16_count) / T::MAX_ACC;
+    while max_round_len > 0 && !chunks.is_empty() {
+        // Choose the largest number of chunks we can do this round
+        // that will neither overflow `max_acc` nor blast past the
+        // remaining line breaks we're looking for.
+        let round_len = T::MAX_ACC.min(max_round_len).min(chunks.len());
+        max_round_len -= round_len;
+        let round = &chunks[..round_len];
+        chunks = &chunks[round_len..];
+
+        // Process the chunks in this round.
+        let mut acc_inv_chars = T::zero();
+        let mut acc_surrogates = T::zero();
+        for chunk in round.iter() {
+            acc_inv_chars = acc_inv_chars.add(chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80));
+            acc_surrogates = acc_surrogates.add(chunk.bitand(T::splat(0xf0)).cmp_eq_byte(0xf0));
+        }
+        utf16_count +=
+            ((T::SIZE * round_len) - acc_inv_chars.sum_bytes()) + acc_surrogates.sum_bytes();
+        byte_count += T::SIZE * round_len;
+    }
+
+    // Process chunks in the slow path.
+    for chunk in chunks.iter() {
+        let inv_chars = chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80).sum_bytes();
+        let surrogates = chunk.bitand(T::splat(0xf0)).cmp_eq_byte(0xf0).sum_bytes();
+        let new_utf16_count = utf16_count + (T::SIZE - inv_chars) + surrogates;
+        if new_utf16_count >= utf16_idx {
+            break;
+        }
+        utf16_count = new_utf16_count;
+        byte_count += T::SIZE;
+    }
+
+    // Take care of any unaligned bytes at the end.
+    let end = &text.as_bytes()[byte_count..];
+    for byte in end.iter() {
+        utf16_count += ((*byte & 0xC0) != 0x80) as usize + ((byte & 0xf0) == 0xf0) as usize;
+        if utf16_count > utf16_idx {
+            break;
+        }
+        byte_count += 1;
+    }
+
+    byte_count
+}
 
 #[inline(always)]
 fn count_surrogates_internal<T: ByteChunk>(text: &[u8]) -> usize {
@@ -90,8 +147,7 @@ fn count_surrogates_internal<T: ByteChunk>(text: &[u8]) -> usize {
     for chunks in middle.chunks(T::MAX_ACC) {
         let mut acc = T::zero();
         for chunk in chunks.iter() {
-            let tmp = chunk.bitand(T::splat(0xf0)).cmp_eq_byte(0xf0);
-            acc = acc.add(tmp);
+            acc = acc.add(chunk.bitand(T::splat(0xf0)).cmp_eq_byte(0xf0));
         }
         utf16_surrogate_count += acc.sum_bytes();
     }
