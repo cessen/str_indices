@@ -82,12 +82,12 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
 
     // Process chunks in the fast path.
     let mut chunks = middle;
-    let mut max_round_len = (line_idx - break_count) / T::max_acc();
+    let mut max_round_len = (line_idx - break_count) / T::MAX_ACC;
     while !chunks.is_empty() && max_round_len > 0 {
         // Choose the largest number of chunks we can do this round
         // that will neither overflow `max_acc` nor blast past the
         // remaining line breaks we're looking for.
-        let round_len = T::max_acc().min(max_round_len).min(chunks.len());
+        let round_len = T::MAX_ACC.min(max_round_len).min(chunks.len());
         max_round_len -= round_len;
         let round = &chunks[..round_len];
         chunks = &chunks[round_len..];
@@ -104,12 +104,12 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
 
         // Handle CRLFs at chunk boundaries in this round.
         let mut i = byte_count;
-        while i < (byte_count + T::size() * round_len) {
-            i += T::size();
+        while i < (byte_count + T::SIZE * round_len) {
+            i += T::SIZE;
             break_count -= (text[i - 1] == 0x0D && text.get(i) == Some(&0x0A)) as usize;
         }
 
-        byte_count += T::size() * round_len;
+        byte_count += T::SIZE * round_len;
     }
 
     // Process chunks in the slow path.
@@ -121,7 +121,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
             lf_flags.add(cr_flags.sub(crlf_flags)).sum_bytes()
         };
         let boundary_crlf = {
-            let i = byte_count + T::size();
+            let i = byte_count + T::SIZE;
             (text[i - 1] == 0x0D && text.get(i) == Some(&0x0A)) as usize
         };
         let new_break_count = break_count + breaks - boundary_crlf;
@@ -129,7 +129,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
             break;
         }
         break_count = new_break_count;
-        byte_count += T::size();
+        byte_count += T::SIZE;
     }
 
     // Take care of any unaligned bytes at the end.
@@ -168,7 +168,7 @@ fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
     }
 
     // Take care of the middle bytes in big chunks.
-    for chunks in middle.chunks(T::max_acc()) {
+    for chunks in middle.chunks(T::MAX_ACC) {
         let mut acc = T::zero();
         for chunk in chunks.iter() {
             let lf_flags = chunk.cmp_eq_byte(0x0A);
@@ -185,7 +185,7 @@ fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
         if text[i] == 0x0A {
             count -= (text.get(i.saturating_sub(1)) == Some(&0x0D)) as usize;
         }
-        i += T::size();
+        i += T::SIZE;
     }
 
     // Take care of unaligned bytes at the end.

@@ -10,18 +10,18 @@ pub(crate) type Chunk = usize;
 /// Interface for working with chunks of bytes at a time, providing the
 /// operations needed for the functionality in str_utils.
 pub(crate) trait ByteChunk: Copy + Clone {
+    /// Size of the chunk in bytes.
+    const SIZE: usize;
+
+    /// Maximum number of iterations the chunk can accumulate
+    /// before sum_bytes() becomes inaccurate.
+    const MAX_ACC: usize;
+
     /// Creates a new chunk with all bytes set to zero.
     fn zero() -> Self;
 
     /// Creates a new chunk with all bytes set to n.
     fn splat(n: u8) -> Self;
-
-    /// Returns the size of the chunk in bytes.
-    fn size() -> usize;
-
-    /// Returns the maximum number of iterations the chunk can accumulate
-    /// before sum_bytes() becomes inaccurate.
-    fn max_acc() -> usize;
 
     /// Returns whether all bytes are zero or not.
     fn is_zero(&self) -> bool;
@@ -64,6 +64,9 @@ pub(crate) trait ByteChunk: Copy + Clone {
 }
 
 impl ByteChunk for usize {
+    const SIZE: usize = core::mem::size_of::<usize>();
+    const MAX_ACC: usize = (256 / core::mem::size_of::<usize>()) - 1;
+
     #[inline(always)]
     fn zero() -> Self {
         0
@@ -73,16 +76,6 @@ impl ByteChunk for usize {
     fn splat(n: u8) -> Self {
         const ONES: usize = core::usize::MAX / 0xFF;
         ONES * n as usize
-    }
-
-    #[inline(always)]
-    fn size() -> usize {
-        core::mem::size_of::<usize>()
-    }
-
-    #[inline(always)]
-    fn max_acc() -> usize {
-        (256 / core::mem::size_of::<usize>()) - 1
     }
 
     #[inline(always)]
@@ -140,7 +133,7 @@ impl ByteChunk for usize {
     #[inline(always)]
     fn inc_nth_from_end_lex_byte(&self, n: usize) -> Self {
         if cfg!(target_endian = "little") {
-            *self + (1 << ((Self::size() - 1 - n) * 8))
+            *self + (1 << ((Self::SIZE - 1 - n) * 8))
         } else {
             *self + (1 << (n * 8))
         }
@@ -149,7 +142,7 @@ impl ByteChunk for usize {
     #[inline(always)]
     fn dec_last_lex_byte(&self) -> Self {
         if cfg!(target_endian = "little") {
-            *self - (1 << ((Self::size() - 1) * 8))
+            *self - (1 << ((Self::SIZE - 1) * 8))
         } else {
             *self - 1
         }
@@ -158,7 +151,7 @@ impl ByteChunk for usize {
     #[inline(always)]
     fn sum_bytes(&self) -> usize {
         const ONES: usize = core::usize::MAX / 0xFF;
-        self.wrapping_mul(ONES) >> ((Self::size() - 1) * 8)
+        self.wrapping_mul(ONES) >> ((Self::SIZE - 1) * 8)
     }
 }
 
@@ -166,6 +159,9 @@ impl ByteChunk for usize {
 // guaranteed on all x86_64 platforms.
 #[cfg(target_arch = "x86_64")]
 impl ByteChunk for x86_64::__m128i {
+    const SIZE: usize = core::mem::size_of::<x86_64::__m128i>();
+    const MAX_ACC: usize = 255;
+
     #[inline(always)]
     fn zero() -> Self {
         unsafe { x86_64::_mm_setzero_si128() }
@@ -174,16 +170,6 @@ impl ByteChunk for x86_64::__m128i {
     #[inline(always)]
     fn splat(n: u8) -> Self {
         unsafe { x86_64::_mm_set1_epi8(n as i8) }
-    }
-
-    #[inline(always)]
-    fn size() -> usize {
-        core::mem::size_of::<x86_64::__m128i>()
-    }
-
-    #[inline(always)]
-    fn max_acc() -> usize {
-        255
     }
 
     #[inline(always)]
@@ -298,10 +284,10 @@ mod tests {
 
         let ones = T::splat(1);
         let mut acc = T::zero();
-        for _ in 0..T::max_acc() {
+        for _ in 0..T::MAX_ACC {
             acc = acc.add(ones);
         }
 
-        assert_eq!(acc.sum_bytes(), T::size() * T::max_acc());
+        assert_eq!(acc.sum_bytes(), T::SIZE * T::MAX_ACC);
     }
 }

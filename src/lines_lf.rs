@@ -69,12 +69,12 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
 
     // Process chunks in the fast path.
     let mut chunks = middle;
-    let mut max_round_len = (line_idx - lf_count) / T::max_acc();
+    let mut max_round_len = (line_idx - lf_count) / T::MAX_ACC;
     while !chunks.is_empty() && max_round_len > 0 {
         // Choose the largest number of chunks we can do this round
         // that will neither overflow `max_acc` nor blast past the
         // remaining line breaks we're looking for.
-        let round_len = T::max_acc().min(max_round_len).min(chunks.len());
+        let round_len = T::MAX_ACC.min(max_round_len).min(chunks.len());
         max_round_len -= round_len;
         let round = &chunks[..round_len];
         chunks = &chunks[round_len..];
@@ -85,7 +85,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
             acc = acc.add(chunk.cmp_eq_byte(0x0A));
         }
         lf_count += acc.sum_bytes();
-        byte_count += T::size() * round_len;
+        byte_count += T::SIZE * round_len;
     }
 
     // Process chunks in the slow path.
@@ -95,7 +95,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
             break;
         }
         lf_count = new_lf_count;
-        byte_count += T::size();
+        byte_count += T::SIZE;
     }
 
     // Take care of any unaligned bytes at the end.
@@ -129,7 +129,7 @@ fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
     }
 
     // Take care of the middle bytes in big chunks.
-    for chunks in middle.chunks(T::max_acc()) {
+    for chunks in middle.chunks(T::MAX_ACC) {
         let mut acc = T::zero();
         for chunk in chunks.iter() {
             acc = acc.add(chunk.cmp_eq_byte(0x0A));

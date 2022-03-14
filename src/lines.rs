@@ -78,7 +78,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, line_idx: usize) -> usize {
 
     // Count line breaks in big chunks.
     if alignment_diff::<T>(bytes) == 0 {
-        while bytes.len() >= T::size() {
+        while bytes.len() >= T::SIZE {
             // Unsafe because the called function depends on correct alignment.
             let tmp = unsafe { count_breaks_in_chunk_from_ptr::<T>(bytes) }.sum_bytes();
             if tmp + line_break_count >= line_idx {
@@ -86,7 +86,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, line_idx: usize) -> usize {
             }
             line_break_count += tmp;
 
-            bytes = &bytes[T::size()..];
+            bytes = &bytes[T::SIZE..];
         }
     }
 
@@ -129,16 +129,16 @@ fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
     // Count line breaks in big chunks.
     let mut i = 0;
     let mut acc = T::zero();
-    while bytes.len() >= T::size() {
+    while bytes.len() >= T::SIZE {
         // Unsafe because the called function depends on correct alignment.
         acc = acc.add(unsafe { count_breaks_in_chunk_from_ptr::<T>(bytes) });
         i += 1;
-        if i == T::max_acc() {
+        if i == T::MAX_ACC {
             i = 0;
             count += acc.sum_bytes();
             acc = T::zero();
         }
-        bytes = &bytes[T::size()..];
+        bytes = &bytes[T::SIZE..];
     }
     count += acc.sum_bytes();
 
@@ -200,12 +200,12 @@ unsafe fn count_breaks_in_chunk_from_ptr<T: ByteChunk>(bytes: &[u8]) -> T {
     let c = {
         // The only unsafe bits of the function are in this block.
         debug_assert_eq!(bytes.align_to::<T>().0.len(), 0);
-        debug_assert!(bytes.len() >= T::size());
+        debug_assert!(bytes.len() >= T::SIZE);
         // This unsafe cast is for performance reasons: going through e.g.
         // `align_to()` results in a significant drop in performance.
         *(bytes.as_ptr() as *const T)
     };
-    let end_i = T::size();
+    let end_i = T::SIZE;
 
     let mut acc = T::zero();
 
