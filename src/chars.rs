@@ -106,6 +106,17 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
 
 #[inline(always)]
 pub(crate) fn count_internal<T: ByteChunk>(text: &[u8]) -> usize {
+    // Bypass the more complex routine for short strings, where the
+    // complexity actually hurts performance.
+    if text.len() <= 1 {
+        return text.len();
+    } else if text.len() < T::SIZE {
+        return text
+            .iter()
+            .map(|byte| ((byte & 0xC0) != 0x80) as usize)
+            .sum();
+    }
+
     // Get `middle` for more efficient chunk-based counting.
     let (start, middle, end) = unsafe { text.align_to::<T>() };
 
