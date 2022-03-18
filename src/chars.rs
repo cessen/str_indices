@@ -131,8 +131,7 @@ pub(crate) fn count_internal<T: ByteChunk>(text: &[u8]) -> usize {
     for chunks in middle.chunks(T::MAX_ACC) {
         let mut acc = T::zero();
         for chunk in chunks.iter() {
-            let tmp = chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80);
-            acc = acc.add(tmp);
+            acc = acc.add(chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80));
         }
         inv_count += acc.sum_bytes();
     }
