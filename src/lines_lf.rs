@@ -119,6 +119,14 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
 /// - u{000A}        (Line Feed)
 #[inline(always)]
 fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
+    // Bypass the more complex routine for short strings, where the
+    // complexity actually hurts performance.
+    if text.len() <= 1 {
+        return (text.get(0).map(|b| *b) == Some(0x0A)) as usize;
+    } else if text.len() < T::SIZE {
+        return text.iter().map(|byte| (*byte == 0x0A) as usize).sum();
+    }
+
     // Get `middle` so we can do more efficient chunk-based counting.
     let (start, middle, end) = unsafe { text.align_to::<T>() };
 
