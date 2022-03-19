@@ -20,11 +20,16 @@ pub fn count(text: &str) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
-    let mut i = byte_idx.min(text.len());
-    while !text.is_char_boundary(i) {
+    let bytes = text.as_bytes();
+
+    // Ensure the index is either a char boundary or is off the end of
+    // the text.
+    let mut i = byte_idx;
+    while Some(true) == bytes.get(i).map(|byte| (*byte & 0xC0) == 0x80) {
         i -= 1;
     }
-    count_internal::<Chunk>(&text.as_bytes()[0..i])
+
+    count_internal::<Chunk>(&bytes[0..i.min(bytes.len())])
 }
 
 /// Converts from char-index to byte-index in a string slice.
