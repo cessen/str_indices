@@ -11,6 +11,8 @@ license = "MIT OR Apache-2.0"
 keywords = ["text", "string", "nostd"]
 categories = ["text-processing"]
 
+exclude = ["tests/", "benches/text/", ".github/"]
+
 [dependencies]
 
 [dev-dependencies]

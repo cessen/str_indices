@@ -1,25 +1,42 @@
+use std::fs;
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use str_indices::{chars, lines, lines_crlf, lines_lf, utf16};
 
-// Texts to benchmark against.
-const TEST_STRINGS: &[(&str, &str)] = &[
-    ("en_0001", "E"),
-    ("en_0010", include_str!("text/en_10.txt")),
-    ("en_0100", include_str!("text/en_100.txt")),
-    ("en_1000", include_str!("text/en_1000.txt")),
-    ("jp_0003", "日"),
-    ("jp_0102", include_str!("text/jp_102.txt")),
-    ("jp_1001", include_str!("text/jp_1001.txt")),
-];
-
 fn all(c: &mut Criterion) {
+    // Load benchmark strings.
+    let test_strings: Vec<(&str, String)> = vec![
+        ("en_0001", "E".into()),
+        (
+            "en_0010",
+            fs::read_to_string("benches/text/en_10.txt").expect("Cannot find benchmark text."),
+        ),
+        (
+            "en_0100",
+            fs::read_to_string("benches/text/en_100.txt").expect("Cannot find benchmark text."),
+        ),
+        (
+            "en_1000",
+            fs::read_to_string("benches/text/en_1000.txt").expect("Cannot find benchmark text."),
+        ),
+        ("jp_0003", "日".into()),
+        (
+            "jp_0102",
+            fs::read_to_string("benches/text/jp_102.txt").expect("Cannot find benchmark text."),
+        ),
+        (
+            "jp_1001",
+            fs::read_to_string("benches/text/jp_1001.txt").expect("Cannot find benchmark text."),
+        ),
+    ];
+
     //---------------------------------------------------------
     // Chars.
 
     // chars::count()
     {
         let mut group = c.benchmark_group("chars::count");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 bench.iter(|| {
                     black_box(chars::count(text));
@@ -31,7 +48,7 @@ fn all(c: &mut Criterion) {
         // Equivalent implementations using stdlib functions,
         // for performance comparisons.
         let mut group = c.benchmark_group("chars::count_std");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 bench.iter(|| {
                     black_box(text.chars().count());
@@ -43,7 +60,7 @@ fn all(c: &mut Criterion) {
     // chars::from_byte_idx()
     {
         let mut group = c.benchmark_group("chars::from_byte_idx");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 let idx = text.len();
                 bench.iter(|| {
@@ -56,7 +73,7 @@ fn all(c: &mut Criterion) {
         // Equivalent implementations using stdlib functions,
         // for performance comparisons.
         let mut group = c.benchmark_group("chars::from_byte_idx_std");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(format!("std::{}", text_name), |bench| {
                 let idx = text.len();
                 bench.iter(|| {
@@ -78,7 +95,7 @@ fn all(c: &mut Criterion) {
     // chars::to_byte_idx()
     {
         let mut group = c.benchmark_group("chars::to_byte_idx");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 let idx = chars::count(text);
                 bench.iter(|| {
@@ -91,7 +108,7 @@ fn all(c: &mut Criterion) {
         // Equivalent implementations using stdlib functions,
         // for performance comparisons.
         let mut group = c.benchmark_group("chars::to_byte_idx_std");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(format!("std::{}", text_name), |bench| {
                 let idx = chars::count(text) - 1; // Minus 1 so we can unwrap below.
                 bench.iter(|| {
@@ -107,7 +124,7 @@ fn all(c: &mut Criterion) {
     // utf16::count()
     {
         let mut group = c.benchmark_group("utf16::count");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 bench.iter(|| {
                     black_box(utf16::count(text));
@@ -119,7 +136,7 @@ fn all(c: &mut Criterion) {
     // utf16::count_surrogates()
     {
         let mut group = c.benchmark_group("utf16::count_surrogates");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 bench.iter(|| {
                     black_box(utf16::count_surrogates(text));
@@ -131,7 +148,7 @@ fn all(c: &mut Criterion) {
     // utf16::from_byte_idx()
     {
         let mut group = c.benchmark_group("utf16::from_byte_idx");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 let idx = text.len();
                 bench.iter(|| {
@@ -144,7 +161,7 @@ fn all(c: &mut Criterion) {
     // utf16::to_byte_idx()
     {
         let mut group = c.benchmark_group("utf16::to_byte_idx");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 let idx = utf16::count(text);
                 bench.iter(|| {
@@ -160,7 +177,7 @@ fn all(c: &mut Criterion) {
     // lines::count_breaks()
     {
         let mut group = c.benchmark_group("lines::count_breaks");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 bench.iter(|| {
                     black_box(lines::count_breaks(text));
@@ -172,7 +189,7 @@ fn all(c: &mut Criterion) {
     // lines::from_byte_idx()
     {
         let mut group = c.benchmark_group("lines::from_byte_idx");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 let idx = text.len();
                 bench.iter(|| {
@@ -185,7 +202,7 @@ fn all(c: &mut Criterion) {
     // lines::to_byte_idx()
     {
         let mut group = c.benchmark_group("lines::to_byte_idx");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 let idx = lines::count_breaks(text) + 1;
                 bench.iter(|| {
@@ -201,7 +218,7 @@ fn all(c: &mut Criterion) {
     // lines_lf::count_breaks()
     {
         let mut group = c.benchmark_group("lines_lf::count_breaks");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 bench.iter(|| {
                     black_box(lines_lf::count_breaks(text));
@@ -217,7 +234,7 @@ fn all(c: &mut Criterion) {
         // But it should be close enough for perf
         // comparisons.
         let mut group = c.benchmark_group("lines_lf::count_breaks_std");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 bench.iter(|| {
                     black_box(text.lines().count());
@@ -229,7 +246,7 @@ fn all(c: &mut Criterion) {
     // lines_lf::from_byte_idx()
     {
         let mut group = c.benchmark_group("lines_lf::from_byte_idx");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 let idx = text.len();
                 bench.iter(|| {
@@ -242,7 +259,7 @@ fn all(c: &mut Criterion) {
     // lines_lf::to_byte_idx()
     {
         let mut group = c.benchmark_group("lines_lf::to_byte_idx");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 let idx = lines_lf::count_breaks(text) + 1;
                 bench.iter(|| {
@@ -258,7 +275,7 @@ fn all(c: &mut Criterion) {
     // lines_crlf::count_breaks()
     {
         let mut group = c.benchmark_group("lines_crlf::count_breaks");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 bench.iter(|| {
                     black_box(lines_crlf::count_breaks(text));
@@ -270,7 +287,7 @@ fn all(c: &mut Criterion) {
     // lines_crlf::from_byte_idx()
     {
         let mut group = c.benchmark_group("lines_crlf::from_byte_idx");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 let idx = text.len();
                 bench.iter(|| {
@@ -283,7 +300,7 @@ fn all(c: &mut Criterion) {
     // lines_crlf::to_byte_idx()
     {
         let mut group = c.benchmark_group("lines_crlf::to_byte_idx");
-        for (text_name, text) in TEST_STRINGS.iter() {
+        for (text_name, text) in test_strings.iter() {
             group.bench_function(*text_name, |bench| {
                 let idx = lines_crlf::count_breaks(text) + 1;
                 bench.iter(|| {
