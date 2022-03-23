@@ -78,8 +78,13 @@ fn to_byte_idx_slow(text: &str, line_idx: usize) -> usize {
 
 //===========================================================================
 
+#[cfg(miri)]
+const ROUNDS: u32 = 4;
+#[cfg(not(miri))]
+const ROUNDS: u32 = 512;
+
 proptest! {
-    #![proptest_config(Config::with_cases(512))]
+    #![proptest_config(Config::with_cases(ROUNDS))]
 
     #[test]
     fn pt_count_breaks(ref text in "[aあ🐸\\u{000A}\\u{000D}]{0, 200}") {

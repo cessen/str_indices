@@ -36,8 +36,13 @@ fn to_byte_idx_slow(text: &str, char_idx: usize) -> usize {
 
 //===========================================================================
 
+#[cfg(miri)]
+const ROUNDS: u32 = 4;
+#[cfg(not(miri))]
+const ROUNDS: u32 = 512;
+
 proptest! {
-    #![proptest_config(Config::with_cases(512))]
+    #![proptest_config(Config::with_cases(ROUNDS))]
 
     #[test]
     fn pt_count(ref text in "\\PC{0, 200}") {
