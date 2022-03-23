@@ -15,6 +15,26 @@ The following schemes are currently supported:
     * All Unicode line break characters, as specified in [Unicode Annex #14](https://www.unicode.org/reports/tr14/).
 
 
+## Unsafe code
+
+Str Indices uses unsafe code for performance optimizations, primarily
+for SIMD intrinsics.  The unsafe code is kept minimal, mostly
+compartmentalized, and easy to audit.  The entire code base is also fuzz
+tested.
+
+If you would like to run the fuzz testing suite yourself, install Rust
+nightly and [cargo fuzz](https://github.com/rust-fuzz/cargo-fuzz/)
+and run the following command from the repository root:
+
+```
+cargo +nightly fuzz run random_strings
+```
+
+Additional runs of the fuzz testing suite are very much appreciated, as
+is general auditing of the code base.  If you find any unsoundness,
+_please_ file an issue!
+
+
 ## License
 
 This project is licensed under either of
