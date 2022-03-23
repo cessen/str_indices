@@ -8,8 +8,8 @@ use crate::byte_chunk::{ByteChunk, Chunk};
 /// Runs in O(N) time.
 #[inline]
 pub fn count(text: &str) -> usize {
-    crate::chars::count_internal::<Chunk>(text.as_bytes())
-        + count_surrogates_internal::<Chunk>(text.as_bytes())
+    crate::chars::count_impl::<Chunk>(text.as_bytes())
+        + count_surrogates_impl::<Chunk>(text.as_bytes())
 }
 
 /// Counts the utf16 surrogate pairs that would be in a string slice if
@@ -18,7 +18,7 @@ pub fn count(text: &str) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn count_surrogates(text: &str) -> usize {
-    count_surrogates_internal::<Chunk>(text.as_bytes())
+    count_surrogates_impl::<Chunk>(text.as_bytes())
 }
 
 /// Converts from byte-index to utf16-code-unit-index in a string slice.
@@ -36,7 +36,7 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
         i -= 1;
     }
     let slice = &text.as_bytes()[..i];
-    crate::chars::count_internal::<Chunk>(slice) + count_surrogates_internal::<Chunk>(slice)
+    crate::chars::count_impl::<Chunk>(slice) + count_surrogates_impl::<Chunk>(slice)
 }
 
 /// Converts from utf16-code-unit-index to byte-index in a string slice.
@@ -49,13 +49,13 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn to_byte_idx(text: &str, utf16_idx: usize) -> usize {
-    to_byte_idx_inner::<Chunk>(text, utf16_idx)
+    to_byte_idx_impl::<Chunk>(text, utf16_idx)
 }
 
 //-------------------------------------------------------------
 
 #[inline(always)]
-fn to_byte_idx_inner<T: ByteChunk>(text: &str, utf16_idx: usize) -> usize {
+fn to_byte_idx_impl<T: ByteChunk>(text: &str, utf16_idx: usize) -> usize {
     // Get `middle` so we can do more efficient chunk-based counting.
     // We can't use this to get `end`, however, because the start index of
     // `end` actually depends on the accumulating char counts during the
@@ -124,7 +124,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, utf16_idx: usize) -> usize {
 }
 
 #[inline(always)]
-fn count_surrogates_internal<T: ByteChunk>(text: &[u8]) -> usize {
+fn count_surrogates_impl<T: ByteChunk>(text: &[u8]) -> usize {
     // We chop off the last three bytes, because all surrogate pairs are
     // four bytes in utf8, and so it prevents counting partial
     // characters.

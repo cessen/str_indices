@@ -20,7 +20,7 @@ use crate::byte_chunk::{ByteChunk, Chunk};
 /// Runs in O(N) time.
 #[inline]
 pub fn count_breaks(text: &str) -> usize {
-    count_breaks_internal::<Chunk>(text.as_bytes())
+    count_breaks_impl::<Chunk>(text.as_bytes())
 }
 
 /// Converts from byte-index to line-index in a string slice.
@@ -39,7 +39,7 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
     while !text.is_char_boundary(i) {
         i -= 1;
     }
-    let nl_count = count_breaks_internal::<Chunk>(&text.as_bytes()[..i]);
+    let nl_count = count_breaks_impl::<Chunk>(&text.as_bytes()[..i]);
     if crate::is_not_crlf_middle(i, text.as_bytes()) {
         nl_count
     } else {
@@ -58,13 +58,13 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn to_byte_idx(text: &str, line_idx: usize) -> usize {
-    to_byte_idx_inner::<Chunk>(text, line_idx)
+    to_byte_idx_impl::<Chunk>(text, line_idx)
 }
 
 //-------------------------------------------------------------
 
 #[inline(always)]
-fn to_byte_idx_inner<T: ByteChunk>(text: &str, line_idx: usize) -> usize {
+fn to_byte_idx_impl<T: ByteChunk>(text: &str, line_idx: usize) -> usize {
     let mut bytes = text.as_bytes();
     let mut line_break_count = 0;
 
@@ -114,7 +114,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, line_idx: usize) -> usize {
 /// - u{2028}        (Line Separator)
 /// - u{2029}        (Paragraph Separator)
 #[inline(always)]
-fn count_breaks_internal<T: ByteChunk>(text: &[u8]) -> usize {
+fn count_breaks_impl<T: ByteChunk>(text: &[u8]) -> usize {
     let mut bytes = text;
     let mut count = 0;
 

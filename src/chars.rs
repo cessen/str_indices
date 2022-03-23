@@ -7,7 +7,7 @@ use crate::byte_chunk::{ByteChunk, Chunk};
 /// Runs in O(N) time.
 #[inline]
 pub fn count(text: &str) -> usize {
-    count_internal::<Chunk>(text.as_bytes())
+    count_impl::<Chunk>(text.as_bytes())
 }
 
 /// Converts from byte-index to char-index in a string slice.
@@ -29,7 +29,7 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
         i -= 1;
     }
 
-    count_internal::<Chunk>(&bytes[0..i.min(bytes.len())])
+    count_impl::<Chunk>(&bytes[0..i.min(bytes.len())])
 }
 
 /// Converts from char-index to byte-index in a string slice.
@@ -39,13 +39,13 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn to_byte_idx(text: &str, char_idx: usize) -> usize {
-    to_byte_idx_inner::<Chunk>(text, char_idx)
+    to_byte_idx_impl::<Chunk>(text, char_idx)
 }
 
 //-------------------------------------------------------------
 
 #[inline(always)]
-fn to_byte_idx_inner<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
+fn to_byte_idx_impl<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
     // Get `middle` so we can do more efficient chunk-based counting.
     // We can't use this to get `end`, however, because the start index of
     // `end` actually depends on the accumulating char counts during the
@@ -110,7 +110,7 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
 }
 
 #[inline(always)]
-pub(crate) fn count_internal<T: ByteChunk>(text: &[u8]) -> usize {
+pub(crate) fn count_impl<T: ByteChunk>(text: &[u8]) -> usize {
     if text.len() < T::SIZE {
         // Bypass the more complex routine for short strings, where the
         // complexity hurts performance.
