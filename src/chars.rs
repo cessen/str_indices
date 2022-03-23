@@ -111,42 +111,39 @@ fn to_byte_idx_inner<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
 
 #[inline(always)]
 pub(crate) fn count_internal<T: ByteChunk>(text: &[u8]) -> usize {
-    // Bypass the more complex routine for short strings, where the
-    // complexity actually hurts performance.
-    if text.len() <= 1 {
-        return text.len();
-    } else if text.len() < T::SIZE {
-        return text
-            .iter()
+    if text.len() < T::SIZE {
+        // Bypass the more complex routine for short strings, where the
+        // complexity hurts performance.
+        text.iter()
             .map(|byte| ((byte & 0xC0) != 0x80) as usize)
-            .sum();
-    }
+            .sum()
+    } else {
+        // Get `middle` for more efficient chunk-based counting.
+        let (start, middle, end) = unsafe { text.align_to::<T>() };
 
-    // Get `middle` for more efficient chunk-based counting.
-    let (start, middle, end) = unsafe { text.align_to::<T>() };
+        let mut inv_count = 0;
 
-    let mut inv_count = 0;
-
-    // Take care of unaligned bytes at the beginning.
-    for byte in start.iter() {
-        inv_count += ((byte & 0xC0) == 0x80) as usize;
-    }
-
-    // Take care of the middle bytes in big chunks.
-    for chunks in middle.chunks(T::MAX_ACC) {
-        let mut acc = T::zero();
-        for chunk in chunks.iter() {
-            acc = acc.add(chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80));
+        // Take care of unaligned bytes at the beginning.
+        for byte in start.iter() {
+            inv_count += ((byte & 0xC0) == 0x80) as usize;
         }
-        inv_count += acc.sum_bytes();
-    }
 
-    // Take care of unaligned bytes at the end.
-    for byte in end.iter() {
-        inv_count += ((byte & 0xC0) == 0x80) as usize;
-    }
+        // Take care of the middle bytes in big chunks.
+        for chunks in middle.chunks(T::MAX_ACC) {
+            let mut acc = T::zero();
+            for chunk in chunks.iter() {
+                acc = acc.add(chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80));
+            }
+            inv_count += acc.sum_bytes();
+        }
 
-    text.len() - inv_count
+        // Take care of unaligned bytes at the end.
+        for byte in end.iter() {
+            inv_count += ((byte & 0xC0) == 0x80) as usize;
+        }
+
+        text.len() - inv_count
+    }
 }
 
 //=============================================================
