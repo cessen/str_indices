@@ -4,6 +4,12 @@
 ## [Unreleased]
 
 
+## [0.3.2] - 2022-03-22
+
+### Performance
+- Substantially improved performance for `chars::count()` and `lines_lf::count_breaks()` on very short strings, in some cases up to 2x faster.
+
+
 ## [0.3.1] - 2022-03-14
 
 ### Performance
@@ -35,7 +41,8 @@
 - Split off from [Ropey](https://crates.io/crates/ropey).
 
 
-[Unreleased]: https://github.com/cessen/str_indices/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/cessen/str_indices/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/cessen/str_indices/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/cessen/str_indices/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/cessen/str_indices/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/cessen/str_indices/compare/v0.1.0...v0.2.0
