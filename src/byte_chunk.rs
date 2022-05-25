@@ -1,10 +1,10 @@
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(miri)))]
 use core::arch::x86_64;
 
 // Which type to actually use at build time.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(miri)))]
 pub(crate) type Chunk = x86_64::__m128i;
-#[cfg(not(any(target_arch = "x86_64")))]
+#[cfg(any(not(target_arch = "x86_64")), miri)]
 pub(crate) type Chunk = usize;
 
 /// Interface for working with chunks of bytes at a time, providing the
@@ -157,7 +157,7 @@ impl ByteChunk for usize {
 
 // Note: use only SSE2 and older instructions, since these are
 // guaranteed on all x86_64 platforms.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(miri)))]
 impl ByteChunk for x86_64::__m128i {
     const SIZE: usize = core::mem::size_of::<x86_64::__m128i>();
     const MAX_ACC: usize = 255;
@@ -277,7 +277,7 @@ mod tests {
         assert_eq!(0x00_01_00_00_00_00_00_00, v.bytes_between_127(0x08, 0x7E));
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", not(miri)))]
     #[test]
     fn sum_bytes_x86_64() {
         use core::arch::x86_64::__m128i as T;
