@@ -2,9 +2,9 @@
 use core::arch::x86_64;
 
 // Which type to actually use at build time.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 pub(crate) type Chunk = x86_64::__m128i;
-#[cfg(not(any(target_arch = "x86_64")))]
+#[cfg(any(not(feature = "simd"), not(any(target_arch = "x86_64"))))]
 pub(crate) type Chunk = usize;
 
 /// Interface for working with chunks of bytes at a time, providing the
@@ -277,7 +277,7 @@ mod tests {
         assert_eq!(0x00_01_00_00_00_00_00_00, v.bytes_between_127(0x08, 0x7E));
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     #[test]
     fn sum_bytes_x86_64() {
         use core::arch::x86_64::__m128i as T;
