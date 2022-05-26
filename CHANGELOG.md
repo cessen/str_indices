@@ -4,6 +4,12 @@
 ## [Unreleased]
 
 
+## [0.4.0] - 2022-05-25
+
+### New Features
+- Added "simd" feature flag to allow disabling simd usage in the library.
+
+
 ## [0.3.2] - 2022-03-22
 
 ### Performance
@@ -41,7 +47,8 @@
 - Split off from [Ropey](https://crates.io/crates/ropey).
 
 
-[Unreleased]: https://github.com/cessen/str_indices/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/cessen/str_indices/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/cessen/str_indices/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/cessen/str_indices/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/cessen/str_indices/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/cessen/str_indices/compare/v0.2.0...v0.3.0
