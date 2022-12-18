@@ -7,7 +7,7 @@ Count and convert between different indexing schemes on utf8 string slices.
 
 The following schemes are currently supported:
 
-* Chars (or "Unicode scalar values").
+* Chars (Unicode scalar values).
 * UTF16 code units.
 * Lines, with three options for recognized line break characters:
     * Line feed only.
@@ -15,7 +15,15 @@ The following schemes are currently supported:
     * All Unicode line break characters, as specified in [Unicode Annex #14](https://www.unicode.org/reports/tr14/).
 
 
-## Unsafe code
+## Feature Flags
+
+The `simd` feature flag (enabled by default) enables explicit SIMD
+optimizations on supported platforms.  Disabling it will use the
+fallback scalar code path on all platforms.  This feature flag only
+affects performance, not behavior.
+
+
+## Unsafe Code
 
 Str Indices uses unsafe code for performance optimizations, primarily
 for SIMD intrinsics.  The unsafe code is kept minimal, mostly
