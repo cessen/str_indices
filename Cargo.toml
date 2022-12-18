@@ -15,7 +15,7 @@ exclude = ["tests/", "benches/text/", ".github/"]
 
 [features]
 default = ["simd"]
-simd = [] # Enable recognizing carriage returns as line breaks.
+simd = [] # Enable explicit SIMD optimizations on supported platforms.
 
 [dependencies]
 

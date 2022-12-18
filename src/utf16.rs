@@ -80,7 +80,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &str, utf16_idx: usize) -> usize {
     while max_round_len > 0 && !chunks.is_empty() {
         // Choose the largest number of chunks we can do this round
         // that will neither overflow `max_acc` nor blast past the
-        // remaining line breaks we're looking for.
+        // utf16 code unit we're looking for.
         let round_len = T::MAX_ACC.min(max_round_len).min(chunks.len());
         max_round_len -= round_len;
         let round = &chunks[..round_len];
