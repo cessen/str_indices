@@ -4,6 +4,11 @@
 ## [Unreleased]
 
 
+## [0.4.1] - 2022-12-18
+
+- Updated readme with note about the `simd` feature flag.
+
+
 ## [0.4.0] - 2022-05-25
 
 ### New Features
@@ -47,7 +52,8 @@
 - Split off from [Ropey](https://crates.io/crates/ropey).
 
 
-[Unreleased]: https://github.com/cessen/str_indices/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/cessen/str_indices/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/cessen/str_indices/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/cessen/str_indices/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/cessen/str_indices/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/cessen/str_indices/compare/v0.3.0...v0.3.1
