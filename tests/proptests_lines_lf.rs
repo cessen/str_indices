@@ -6,18 +6,15 @@ use str_indices::lines_lf;
 
 /// A slower, but easy-to-verify version of the library function.
 fn from_byte_idx_slow(text: &str, byte_idx: usize) -> usize {
-    let mut byte_itr = text.bytes();
-    let mut i = 0;
     let mut line_count = 0;
 
-    while let Some(byte) = byte_itr.next() {
+    for (i, byte) in text.bytes().enumerate() {
         if i >= byte_idx {
-            break;
+            return line_count;
         }
         if byte == 0x0A {
             line_count += 1;
         }
-        i += 1;
     }
 
     line_count
@@ -25,21 +22,18 @@ fn from_byte_idx_slow(text: &str, byte_idx: usize) -> usize {
 
 /// A slower, but easy-to-verify version of the library function.
 fn to_byte_idx_slow(text: &str, line_idx: usize) -> usize {
-    let mut byte_itr = text.bytes();
-    let mut i = 0;
     let mut line_count = 0;
 
-    while let Some(byte) = byte_itr.next() {
+    for (i, byte) in text.bytes().enumerate() {
         if line_count == line_idx {
-            break;
+            return i;
         }
         if byte == 0x0A {
             line_count += 1;
         }
-        i += 1;
     }
 
-    i
+    text.len()
 }
 
 //===========================================================================
