@@ -46,8 +46,7 @@ fn all(c: &mut Criterion) {
     let line_strings = vec![
         (
             "lines_100",
-            fs::read_to_string("benches/text/lines.txt")
-                .expect("Cannot find benchmark text."),
+            fs::read_to_string("benches/text/lines.txt").expect("Cannot find benchmark text."),
         ),
         (
             "lines_1000",

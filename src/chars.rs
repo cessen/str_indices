@@ -129,23 +129,21 @@ pub(crate) fn count_impl<T: ByteChunk>(text: &[u8]) -> usize {
         }
 
         #[inline(always)]
-        fn char_boundaries<T: ByteChunk>(val: &T) -> T {
+        fn char_boundaries<T: ByteChunk>(val: T) -> T {
             val.bitand(T::splat(0xc0)).cmp_eq_byte(0x80)
         }
 
-        // Take care of the middle bytes in big chunks. Loop unrolled
+        // Take care of the middle bytes in big chunks. Loop unrolled.
         for chunks in middle.chunks_exact(4) {
-            let val1 = char_boundaries(&chunks[0]);
-            let val2 = char_boundaries(&chunks[1]);
-            let val3 = char_boundaries(&chunks[2]);
-            let val4 = char_boundaries(&chunks[3]);
+            let val1 = char_boundaries(chunks[0]);
+            let val2 = char_boundaries(chunks[1]);
+            let val3 = char_boundaries(chunks[2]);
+            let val4 = char_boundaries(chunks[3]);
             inv_count += val1.add(val2).add(val3.add(val4)).sum_bytes();
         }
-
-        // Take care of the rest of the chunk
         let mut acc = T::zero();
         for chunk in middle.chunks_exact(4).remainder() {
-            acc = acc.add(char_boundaries(chunk));
+            acc = acc.add(char_boundaries(*chunk));
         }
         inv_count += acc.sum_bytes();
 
