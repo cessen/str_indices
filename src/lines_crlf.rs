@@ -148,6 +148,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
 ///
 /// The following unicode sequences are considered newlines by this function:
 /// - u{000A}        (Line Feed)
+/// - u{000D}        (Carriage Return)
 #[inline(always)]
 fn count_breaks_impl<T: ByteChunk>(text: &[u8]) -> usize {
     // Get `middle` so we can do more efficient chunk-based counting.

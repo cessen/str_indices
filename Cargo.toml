@@ -23,6 +23,9 @@ simd = [] # Enable explicit SIMD optimizations on supported platforms.
 proptest = "1.0"
 criterion = { version = "0.3", features = ["html_reports"] }
 
+[profile.release]
+lto = "thin"
+
 #-----------------------------------------
 
 [[bench]]
