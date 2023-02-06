@@ -1,3 +1,4 @@
+#![allow(clippy::uninlined_format_args)]
 use std::fs;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -85,7 +86,7 @@ fn all(c: &mut Criterion) {
                         }
                         // Count the number of chars until the
                         // char that begins at `byte_idx`.
-                        (&text[..byte_idx]).chars().count()
+                        text[..byte_idx].chars().count()
                     })
                 })
             });
@@ -112,7 +113,7 @@ fn all(c: &mut Criterion) {
             group.bench_function(format!("std::{}", text_name), |bench| {
                 let idx = chars::count(text) - 1; // Minus 1 so we can unwrap below.
                 bench.iter(|| {
-                    black_box(text.char_indices().skip(idx).next().unwrap().0);
+                    black_box(text.char_indices().nth(idx).unwrap().0);
                 })
             });
         }
