@@ -328,6 +328,7 @@ impl ByteChunk for aarch64::uint8x16_t {
         unsafe { aarch64::vandq_u8(*self, other) }
     }
 
+    #[inline(always)]
     fn add(&self, other: Self) -> Self {
         unsafe { aarch64::vaddq_u8(*self, other) }
     }
