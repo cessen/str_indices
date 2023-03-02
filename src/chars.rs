@@ -78,7 +78,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], char_idx: usize) -> usize {
 
     // Process chunks in the fast path.
     let mut chunks = middle;
-    let mut max_round_len = char_idx.saturating_sub(char_count) / T::MAX_ACC;
+    let mut max_round_len = (char_idx - char_count) / T::SIZE;
     while max_round_len > 0 && !chunks.is_empty() {
         // Choose the largest number of chunks we can do this round
         // that will neither overflow `max_acc` nor blast past the
