@@ -1,65 +1,30 @@
 #![allow(clippy::uninlined_format_args)]
-use std::fs;
+use std::{fs, path::Path};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use str_indices::{chars, lines, lines_crlf, lines_lf, utf16};
 
 fn all(c: &mut Criterion) {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("benches/text");
+    let read_text =
+        |name: &str| fs::read_to_string(root.join(name)).expect("cannot find benchmark text at");
     // Load benchmark strings.
     let test_strings = vec![
         ("en_0001", "E".into()),
-        (
-            "en_0010",
-            fs::read_to_string("benches/text/en_10.txt").expect("Cannot find benchmark text."),
-        ),
-        (
-            "en_0100",
-            fs::read_to_string("benches/text/en_100.txt").expect("Cannot find benchmark text."),
-        ),
-        (
-            "en_1000",
-            fs::read_to_string("benches/text/en_1000.txt").expect("Cannot find benchmark text."),
-        ),
-        (
-            "en_10000",
-            fs::read_to_string("benches/text/en_1000.txt")
-                .expect("Cannot find benchmark text.")
-                .repeat(10),
-        ),
+        ("en_0010", read_text("en_10.txt")),
+        ("en_0100", read_text("en_100.txt")),
+        ("en_1000", read_text("en_1000.txt")),
+        ("en_10000", read_text("en_1000.txt").repeat(10)),
         ("jp_0003", "日".into()),
-        (
-            "jp_0102",
-            fs::read_to_string("benches/text/jp_102.txt").expect("Cannot find benchmark text."),
-        ),
-        (
-            "jp_1001",
-            fs::read_to_string("benches/text/jp_1001.txt").expect("Cannot find benchmark text."),
-        ),
-        (
-            "jp_10000",
-            fs::read_to_string("benches/text/jp_1001.txt")
-                .expect("Cannot find benchmark text.")
-                .repeat(10),
-        ),
+        ("jp_0102", read_text("jp_102.txt")),
+        ("jp_1001", read_text("jp_1001.txt")),
+        ("jp_10000", read_text("jp_1001.txt").repeat(10)),
     ];
 
     let line_strings = vec![
-        (
-            "lines_100",
-            fs::read_to_string("benches/text/lines.txt").expect("Cannot find benchmark text."),
-        ),
-        (
-            "lines_1000",
-            fs::read_to_string("benches/text/lines.txt")
-                .expect("Cannot find benchmark text.")
-                .repeat(10),
-        ),
-        (
-            "lines_10000",
-            fs::read_to_string("benches/text/lines.txt")
-                .expect("Cannot find benchmark text.")
-                .repeat(100),
-        ),
+        ("lines_100", read_text("lines.txt")),
+        ("lines_1000", read_text("lines.txt").repeat(10)),
+        ("lines_10000", read_text("lines.txt").repeat(100)),
     ];
 
     //---------------------------------------------------------
