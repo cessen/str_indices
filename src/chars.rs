@@ -39,18 +39,30 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
 /// Runs in O(N) time.
 #[inline]
 pub fn to_byte_idx(text: &str, char_idx: usize) -> usize {
-    to_byte_idx_impl::<Chunk>(text, char_idx)
+    to_byte_idx_impl::<Chunk>(text.as_bytes(), char_idx)
 }
 
 //-------------------------------------------------------------
 
 #[inline(always)]
-fn to_byte_idx_impl<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
+fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], char_idx: usize) -> usize {
+    if text.len() <= T::SIZE {
+        // Bypass the more complex routine for short strings, where the
+        // complexity hurts performance.
+        let mut char_count = 0;
+        for (i, byte) in text.iter().enumerate() {
+            char_count += is_leading_byte(byte);
+            if char_count > char_idx {
+                return i;
+            }
+        }
+        return text.len();
+    }
     // Get `middle` so we can do more efficient chunk-based counting.
     // We can't use this to get `end`, however, because the start index of
     // `end` actually depends on the accumulating char counts during the
     // counting process.
-    let (start, middle, _) = unsafe { text.as_bytes().align_to::<T>() };
+    let (start, middle, _) = unsafe { text.align_to::<T>() };
 
     let mut byte_count = 0;
     let mut char_count = 0;
@@ -59,7 +71,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
     for byte in start.iter() {
         char_count += is_leading_byte(byte);
         if char_count > char_idx {
-            break;
+            return byte_count;
         }
         byte_count += 1;
     }
@@ -79,7 +91,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
         // Process the chunks in this round.
         let mut acc = T::zero();
         for chunk in round.iter() {
-            acc = acc.add(chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80));
+            acc = acc.add(count_trailing_chunk(*chunk));
         }
         char_count += (T::SIZE * round_len) - acc.sum_bytes();
         byte_count += T::SIZE * round_len;
@@ -87,8 +99,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
 
     // Process chunks in the slow path.
     for chunk in chunks.iter() {
-        let new_char_count =
-            char_count + T::SIZE - chunk.bitand(T::splat(0xc0)).cmp_eq_byte(0x80).sum_bytes();
+        let new_char_count = char_count + T::SIZE - count_trailing_chunk(*chunk).sum_bytes();
         if new_char_count >= char_idx {
             break;
         }
@@ -97,7 +108,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
     }
 
     // Take care of any unaligned bytes at the end.
-    let end = &text.as_bytes()[byte_count..];
+    let end = &text[byte_count..];
     for byte in end.iter() {
         char_count += is_leading_byte(byte);
         if char_count > char_idx {
