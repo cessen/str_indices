@@ -25,7 +25,7 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
     // Ensure the index is either a char boundary or is off the end of
     // the text.
     let mut i = byte_idx;
-    while Some(true) == bytes.get(i).map(|byte| (*byte & 0xC0) == 0x80) {
+    while Some(1) == bytes.get(i).map(is_trailing_byte) {
         i -= 1;
     }
 
@@ -57,7 +57,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
 
     // Take care of any unaligned bytes at the beginning.
     for byte in start.iter() {
-        char_count += ((*byte & 0xC0) != 0x80) as usize;
+        char_count += is_leading_byte(byte);
         if char_count > char_idx {
             break;
         }
@@ -99,7 +99,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &str, char_idx: usize) -> usize {
     // Take care of any unaligned bytes at the end.
     let end = &text.as_bytes()[byte_count..];
     for byte in end.iter() {
-        char_count += ((*byte & 0xC0) != 0x80) as usize;
+        char_count += is_leading_byte(byte);
         if char_count > char_idx {
             break;
         }
@@ -114,46 +114,49 @@ pub(crate) fn count_impl<T: ByteChunk>(text: &[u8]) -> usize {
     if text.len() < T::SIZE {
         // Bypass the more complex routine for short strings, where the
         // complexity hurts performance.
-        text.iter()
-            .map(|byte| ((byte & 0xC0) != 0x80) as usize)
-            .sum()
-    } else {
-        // Get `middle` for more efficient chunk-based counting.
-        let (start, middle, end) = unsafe { text.align_to::<T>() };
-
-        let mut inv_count = 0;
-
-        // Take care of unaligned bytes at the beginning.
-        for byte in start.iter() {
-            inv_count += ((byte & 0xC0) == 0x80) as usize;
-        }
-
-        #[inline(always)]
-        fn char_boundaries<T: ByteChunk>(val: T) -> T {
-            val.bitand(T::splat(0xc0)).cmp_eq_byte(0x80)
-        }
-
-        // Take care of the middle bytes in big chunks. Loop unrolled.
-        for chunks in middle.chunks_exact(4) {
-            let val1 = char_boundaries(chunks[0]);
-            let val2 = char_boundaries(chunks[1]);
-            let val3 = char_boundaries(chunks[2]);
-            let val4 = char_boundaries(chunks[3]);
-            inv_count += val1.add(val2).add(val3.add(val4)).sum_bytes();
-        }
-        let mut acc = T::zero();
-        for chunk in middle.chunks_exact(4).remainder() {
-            acc = acc.add(char_boundaries(*chunk));
-        }
-        inv_count += acc.sum_bytes();
-
-        // Take care of unaligned bytes at the end.
-        for byte in end.iter() {
-            inv_count += ((byte & 0xC0) == 0x80) as usize;
-        }
-
-        text.len() - inv_count
+        return text.iter().map(is_leading_byte).sum();
     }
+    // Get `middle` for more efficient chunk-based counting.
+    let (start, middle, end) = unsafe { text.align_to::<T>() };
+
+    let mut inv_count = 0;
+
+    // Take care of unaligned bytes at the beginning.
+    inv_count += start.iter().map(is_trailing_byte).sum::<usize>();
+
+    // Take care of the middle bytes in big chunks. Loop unrolled.
+    for chunks in middle.chunks_exact(4) {
+        let val1 = count_trailing_chunk(chunks[0]);
+        let val2 = count_trailing_chunk(chunks[1]);
+        let val3 = count_trailing_chunk(chunks[2]);
+        let val4 = count_trailing_chunk(chunks[3]);
+        inv_count += val1.add(val2).add(val3.add(val4)).sum_bytes();
+    }
+    let mut acc = T::zero();
+    for chunk in middle.chunks_exact(4).remainder() {
+        acc = acc.add(count_trailing_chunk(*chunk));
+    }
+    inv_count += acc.sum_bytes();
+
+    // Take care of unaligned bytes at the end.
+    inv_count += end.iter().map(is_trailing_byte).sum::<usize>();
+
+    text.len() - inv_count
+}
+
+#[inline(always)]
+fn is_leading_byte(byte: &u8) -> usize {
+    ((byte & 0xC0) != 0x80) as usize
+}
+
+#[inline(always)]
+fn is_trailing_byte(byte: &u8) -> usize {
+    ((byte & 0xC0) == 0x80) as usize
+}
+
+#[inline(always)]
+fn count_trailing_chunk<T: ByteChunk>(val: T) -> T {
+    val.bitand(T::splat(0xc0)).cmp_eq_byte(0x80)
 }
 
 //=============================================================
