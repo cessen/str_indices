@@ -76,29 +76,22 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], char_idx: usize) -> usize {
         byte_count += 1;
     }
 
-    // Process chunks in the fast path.
-    let mut chunks = middle;
-    let mut max_round_len = (char_idx - char_count) / T::SIZE;
-    while max_round_len > 0 && !chunks.is_empty() {
-        // Choose the largest number of chunks we can do this round
-        // that will neither overflow `max_acc` nor blast past the
-        // char we're looking for.
-        let round_len = T::MAX_ACC.min(max_round_len).min(chunks.len());
-        max_round_len -= round_len;
-        let round = &chunks[..round_len];
-        chunks = &chunks[round_len..];
-
-        // Process the chunks in this round.
-        let mut acc = T::zero();
-        for chunk in round.iter() {
-            acc = acc.add(count_trailing_chunk(*chunk));
-        }
-        char_count += (T::SIZE * round_len) - acc.sum_bytes();
-        byte_count += T::SIZE * round_len;
+    // Process chunks in the fast path. Ensure that we don't go past the number
+    // of chars we are counting towards
+    let fast_path_chunks = middle.len().min((char_idx - char_count) / T::SIZE);
+    let bytes = T::SIZE * 4;
+    for chunks in middle[..fast_path_chunks].chunks_exact(4) {
+        let val1 = count_trailing_chunk(chunks[0]);
+        let val2 = count_trailing_chunk(chunks[1]);
+        let val3 = count_trailing_chunk(chunks[2]);
+        let val4 = count_trailing_chunk(chunks[3]);
+        char_count += bytes - val1.add(val2).add(val3.add(val4)).sum_bytes();
+        byte_count += bytes;
     }
 
-    // Process chunks in the slow path.
-    for chunk in chunks.iter() {
+    // Process the rest of chunks in the slow path.
+    let rest_idx = fast_path_chunks - fast_path_chunks % 4;
+    for chunk in middle[rest_idx..].iter() {
         let new_char_count = char_count + T::SIZE - count_trailing_chunk(*chunk).sum_bytes();
         if new_char_count >= char_idx {
             break;
