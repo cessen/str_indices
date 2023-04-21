@@ -47,51 +47,62 @@ pub fn to_byte_idx(text: &str, line_idx: usize) -> usize {
 }
 
 //-------------------------------------------------------------
+const LF: u8 = b'\n';
 
 #[inline(always)]
 fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
+    let mut byte_count = 0;
+    let mut lf_count = 0;
+
+    if text.len() <= T::SIZE {
+        // Bypass the more complex routine for short strings, where the
+        // complexity hurts performance.
+        for (i, byte) in text.iter().enumerate() {
+            if lf_count == line_idx {
+                return i;
+            }
+            if *byte == LF {
+                lf_count += 1;
+            }
+        }
+        return text.len();
+    }
     // Get `middle` so we can do more efficient chunk-based counting.
     // We can't use this to get `end`, however, because the start index of
     // `end` actually depends on the accumulating line counts during the
     // counting process.
     let (start, middle, _) = unsafe { text.align_to::<T>() };
 
-    let mut byte_count = 0;
-    let mut lf_count = 0;
-
     // Take care of any unaligned bytes at the beginning.
     for byte in start.iter() {
         if lf_count == line_idx {
-            break;
+            return byte_count;
         }
-        lf_count += (*byte == 0x0A) as usize;
+        if *byte == LF {
+            lf_count += 1;
+        }
         byte_count += 1;
     }
 
-    // Process chunks in the fast path.
-    let mut chunks = middle;
-    let mut max_round_len = (line_idx - lf_count) / T::MAX_ACC;
-    while max_round_len > 0 && !chunks.is_empty() {
-        // Choose the largest number of chunks we can do this round
-        // that will neither overflow `max_acc` nor blast past the
-        // remaining line breaks we're looking for.
-        let round_len = T::MAX_ACC.min(max_round_len).min(chunks.len());
-        max_round_len -= round_len;
-        let round = &chunks[..round_len];
-        chunks = &chunks[round_len..];
-
-        // Process the chunks in this round.
-        let mut acc = T::zero();
-        for chunk in round.iter() {
-            acc = acc.add(chunk.cmp_eq_byte(0x0A));
+    // Process the chunks 4 at a time
+    let mut chunk_count = 0;
+    for chunks in middle.chunks_exact(4) {
+        let val1 = chunks[0].cmp_eq_byte(LF);
+        let val2 = chunks[1].cmp_eq_byte(LF);
+        let val3 = chunks[2].cmp_eq_byte(LF);
+        let val4 = chunks[3].cmp_eq_byte(LF);
+        let new_lf_count = lf_count + val1.add(val2).add(val3.add(val4)).sum_bytes();
+        if new_lf_count >= line_idx {
+            break;
         }
-        lf_count += acc.sum_bytes();
-        byte_count += T::SIZE * round_len;
+        lf_count = new_lf_count;
+        byte_count += T::SIZE * 4;
+        chunk_count += 4;
     }
 
-    // Process chunks in the slow path.
-    for chunk in chunks.iter() {
-        let new_lf_count = lf_count + chunk.cmp_eq_byte(0x0A).sum_bytes();
+    // Process the rest of the chunks
+    for chunk in middle[chunk_count..].iter() {
+        let new_lf_count = lf_count + chunk.cmp_eq_byte(LF).sum_bytes();
         if new_lf_count >= line_idx {
             break;
         }
@@ -100,16 +111,16 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
     }
 
     // Take care of any unaligned bytes at the end.
-    let end = &text[byte_count..];
-    for byte in end.iter() {
+    for byte in &text[byte_count..] {
         if lf_count == line_idx {
             break;
         }
-        lf_count += (*byte == 0x0A) as usize;
+        if *byte == LF {
+            lf_count += 1;
+        }
         byte_count += 1;
     }
 
-    // Finish up
     byte_count
 }
 
@@ -122,7 +133,7 @@ fn count_breaks_impl<T: ByteChunk>(text: &[u8]) -> usize {
     if text.len() < T::SIZE {
         // Bypass the more complex routine for short strings, where the
         // complexity hurts performance.
-        text.iter().map(|byte| (*byte == 0x0A) as usize).sum()
+        count_lf(text)
     } else {
         // Get `middle` so we can do more efficient chunk-based counting.
         let (start, middle, end) = unsafe { text.align_to::<T>() };
@@ -130,26 +141,31 @@ fn count_breaks_impl<T: ByteChunk>(text: &[u8]) -> usize {
         let mut count = 0;
 
         // Take care of unaligned bytes at the beginning.
-        for byte in start.iter() {
-            count += (*byte == 0x0A) as usize;
+        count += count_lf(start);
+
+        // Take care of the middle bytes in big chunks. Loop unrolled.
+        for chunks in middle.chunks_exact(4) {
+            let val1 = chunks[0].cmp_eq_byte(LF);
+            let val2 = chunks[1].cmp_eq_byte(LF);
+            let val3 = chunks[2].cmp_eq_byte(LF);
+            let val4 = chunks[3].cmp_eq_byte(LF);
+            count += val1.add(val2).add(val3.add(val4)).sum_bytes();
         }
 
-        // Take care of the middle bytes in big chunks.
-        for chunks in middle.chunks(T::MAX_ACC) {
-            let mut acc = T::zero();
-            for chunk in chunks.iter() {
-                acc = acc.add(chunk.cmp_eq_byte(0x0A));
-            }
-            count += acc.sum_bytes();
+        // Chunk remainder
+        let mut acc = T::zero();
+        for chunk in middle.chunks_exact(4).remainder() {
+            acc = acc.add(chunk.cmp_eq_byte(LF));
         }
+        count += acc.sum_bytes();
 
         // Take care of unaligned bytes at the end.
-        for byte in end.iter() {
-            count += (*byte == 0x0A) as usize;
-        }
-
-        count
+        count + count_lf(end)
     }
+}
+
+fn count_lf(text: &[u8]) -> usize {
+    text.iter().filter(|&b| *b == LF).count()
 }
 
 //=============================================================
