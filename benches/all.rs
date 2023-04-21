@@ -326,7 +326,7 @@ fn all(c: &mut Criterion) {
     // lines_lf::to_byte_idx()
     {
         let mut group = c.benchmark_group("lines_lf::to_byte_idx");
-        for (text_name, text) in test_strings.iter() {
+        for (text_name, text) in line_strings.iter() {
             group.throughput(Throughput::Bytes(text.len() as u64));
             group.bench_function(*text_name, |bench| {
                 let idx = lines_lf::count_breaks(text) + 1;
