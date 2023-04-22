@@ -55,6 +55,8 @@ pub fn to_byte_idx(text: &str, line_idx: usize) -> usize {
 }
 
 //-------------------------------------------------------------
+const LF: u8 = b'\n';
+const CR: u8 = b'\r';
 
 #[inline(always)]
 fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
@@ -67,76 +69,79 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
     let mut byte_count = 0;
     let mut break_count = 0;
 
-    // Take care of any unaligned bytes at the beginning.
-    for byte in start.iter() {
+    let mut last_was_cr = false;
+    for byte in start.iter().copied() {
+        let is_lf = byte == LF;
+        let is_cr = byte == CR;
         if break_count == line_idx {
-            break;
+            if last_was_cr && is_lf {
+                byte_count += 1;
+            }
+            return byte_count;
         }
-        break_count +=
-            (*byte == 0x0A || (*byte == 0x0D && text.get(byte_count + 1) != Some(&0x0A))) as usize;
+        if is_cr || (is_lf && !last_was_cr) {
+            break_count += 1;
+        }
+        last_was_cr = is_cr;
         byte_count += 1;
     }
 
-    // Process chunks in the fast path.
-    let mut chunks = middle;
-    let mut max_round_len = (line_idx - break_count) / T::MAX_ACC;
-    while max_round_len > 0 && !chunks.is_empty() {
-        // Choose the largest number of chunks we can do this round
-        // that will neither overflow `max_acc` nor blast past the
-        // remaining line breaks we're looking for.
-        let round_len = T::MAX_ACC.min(max_round_len).min(chunks.len());
-        max_round_len -= round_len;
-        let round = &chunks[..round_len];
-        chunks = &chunks[round_len..];
+    // Process the chunks 2 at a time
+    let mut chunk_count = 0;
+    let mut prev = T::splat(last_was_cr as u8);
+    for chunks in middle.chunks_exact(2) {
+        let lf_flags0 = chunks[0].cmp_eq_byte(LF);
+        let cr_flags0 = chunks[0].cmp_eq_byte(CR);
+        let crlf_flags0 = prev.shift_across(cr_flags0).bitand(lf_flags0);
 
-        // Process the chunks in this round.
-        let mut acc = T::zero();
-        for chunk in round.iter() {
-            let lf_flags = chunk.cmp_eq_byte(0x0A);
-            let cr_flags = chunk.cmp_eq_byte(0x0D);
-            let crlf_flags = cr_flags.bitand(lf_flags.shift_back_lex(1));
-            acc = acc.add(lf_flags).add(cr_flags.sub(crlf_flags));
+        let lf_flags1 = chunks[1].cmp_eq_byte(LF);
+        let cr_flags1 = chunks[1].cmp_eq_byte(CR);
+        let crlf_flags1 = cr_flags0.shift_across(cr_flags1).bitand(lf_flags1);
+        let new_break_count = break_count
+            + lf_flags0
+                .add(cr_flags0)
+                .add(lf_flags1)
+                .add(cr_flags1)
+                .sub(crlf_flags0)
+                .sub(crlf_flags1)
+                .sum_bytes();
+        if new_break_count >= line_idx {
+            break;
         }
-        break_count += acc.sum_bytes();
-
-        // Handle CRLFs at chunk boundaries in this round.
-        let mut i = byte_count;
-        while i < (byte_count + T::SIZE * round_len) {
-            i += T::SIZE;
-            break_count -= (text[i - 1] == 0x0D && text.get(i) == Some(&0x0A)) as usize;
-        }
-
-        byte_count += T::SIZE * round_len;
+        break_count = new_break_count;
+        byte_count += T::SIZE * 2;
+        chunk_count += 2;
+        prev = cr_flags1;
     }
 
-    // Process chunks in the slow path.
-    for chunk in chunks.iter() {
-        let breaks = {
-            let lf_flags = chunk.cmp_eq_byte(0x0A);
-            let cr_flags = chunk.cmp_eq_byte(0x0D);
-            let crlf_flags = cr_flags.bitand(lf_flags.shift_back_lex(1));
-            lf_flags.add(cr_flags.sub(crlf_flags)).sum_bytes()
-        };
-        let boundary_crlf = {
-            let i = byte_count + T::SIZE;
-            (text[i - 1] == 0x0D && text.get(i) == Some(&0x0A)) as usize
-        };
-        let new_break_count = break_count + breaks - boundary_crlf;
+    // Process the rest of the chunks
+    for chunk in middle[chunk_count..].iter() {
+        let lf_flags = chunk.cmp_eq_byte(LF);
+        let cr_flags = chunk.cmp_eq_byte(CR);
+        let crlf_flags = prev.shift_across(cr_flags).bitand(lf_flags);
+        let new_break_count = break_count + lf_flags.add(cr_flags).sub(crlf_flags).sum_bytes();
         if new_break_count >= line_idx {
             break;
         }
         break_count = new_break_count;
         byte_count += T::SIZE;
+        prev = cr_flags;
     }
 
-    // Take care of any unaligned bytes at the end.
-    let end = &text[byte_count..];
-    for byte in end.iter() {
+    last_was_cr = text.get(byte_count.saturating_sub(1)) == Some(&CR);
+    for byte in text[byte_count..].iter().copied() {
+        let is_lf = byte == LF;
+        let is_cr = byte == CR;
         if break_count == line_idx {
+            if last_was_cr && is_lf {
+                byte_count += 1;
+            }
             break;
         }
-        break_count +=
-            (*byte == 0x0A || (*byte == 0x0D && text.get(byte_count + 1) != Some(&0x0A))) as usize;
+        if is_cr || (is_lf && !last_was_cr) {
+            break_count += 1;
+        }
+        last_was_cr = is_cr;
         byte_count += 1;
     }
 
@@ -159,39 +164,48 @@ fn count_breaks_impl<T: ByteChunk>(text: &[u8]) -> usize {
     // Take care of unaligned bytes at the beginning.
     let mut last_was_cr = false;
     for byte in start.iter().copied() {
-        let is_lf = byte == 0x0A;
-        let is_cr = byte == 0x0D;
-        count += (is_cr | (is_lf & !last_was_cr)) as usize;
+        let is_lf = byte == LF;
+        let is_cr = byte == CR;
+        if is_cr || (is_lf && !last_was_cr) {
+            count += 1;
+        }
         last_was_cr = is_cr;
     }
 
-    // Take care of the middle bytes in big chunks.
-    for chunks in middle.chunks(T::MAX_ACC) {
-        let mut acc = T::zero();
-        for chunk in chunks.iter() {
-            let lf_flags = chunk.cmp_eq_byte(0x0A);
-            let cr_flags = chunk.cmp_eq_byte(0x0D);
-            let crlf_flags = cr_flags.bitand(lf_flags.shift_back_lex(1));
-            acc = acc.add(lf_flags).add(cr_flags.sub(crlf_flags));
-        }
-        count += acc.sum_bytes();
+    let mut prev = T::splat(last_was_cr as u8);
+    for chunks in middle.chunks_exact(2) {
+        let lf_flags0 = chunks[0].cmp_eq_byte(LF);
+        let cr_flags0 = chunks[0].cmp_eq_byte(CR);
+        let crlf_flags0 = prev.shift_across(cr_flags0).bitand(lf_flags0);
+
+        let lf_flags1 = chunks[1].cmp_eq_byte(LF);
+        let cr_flags1 = chunks[1].cmp_eq_byte(CR);
+        let crlf_flags1 = cr_flags0.shift_across(cr_flags1).bitand(lf_flags1);
+        count += lf_flags0
+            .add(cr_flags0)
+            .sub(crlf_flags0)
+            .add(lf_flags1)
+            .add(cr_flags1)
+            .sub(crlf_flags1)
+            .sum_bytes();
+        prev = cr_flags1;
     }
 
-    // Check chunk boundaries for CRLF.
-    let mut i = start.len();
-    while i < (text.len() - end.len()) {
-        if text[i] == 0x0A {
-            count -= (text.get(i.saturating_sub(1)) == Some(&0x0D)) as usize;
-        }
-        i += T::SIZE;
+    if let Some(chunk) = middle.chunks_exact(2).remainder().iter().next() {
+        let lf_flags = chunk.cmp_eq_byte(LF);
+        let cr_flags = chunk.cmp_eq_byte(CR);
+        let crlf_flags = prev.shift_across(cr_flags).bitand(lf_flags);
+        count += lf_flags.add(cr_flags).sub(crlf_flags).sum_bytes();
     }
 
     // Take care of unaligned bytes at the end.
-    let mut last_was_cr = text.get((text.len() - end.len()).saturating_sub(1)) == Some(&0x0D);
+    last_was_cr = text.get((text.len() - end.len()).saturating_sub(1)) == Some(&CR);
     for byte in end.iter().copied() {
-        let is_lf = byte == 0x0A;
-        let is_cr = byte == 0x0D;
-        count += (is_cr | (is_lf & !last_was_cr)) as usize;
+        let is_lf = byte == LF;
+        let is_cr = byte == CR;
+        if is_cr || (is_lf && !last_was_cr) {
+            count += 1;
+        }
         last_was_cr = is_cr;
     }
 
