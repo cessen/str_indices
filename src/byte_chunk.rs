@@ -37,6 +37,9 @@ pub(crate) trait ByteChunk: Copy + Clone {
     /// Shifts bytes back lexographically by n bytes.
     fn shift_back_lex(&self, n: usize) -> Self;
 
+    /// Shifts the bottom byte of self into the top byte of n.
+    fn shift_across(&self, n: Self) -> Self;
+
     /// Shifts bits to the right by n bits.
     fn shr(&self, n: usize) -> Self;
 
@@ -97,6 +100,16 @@ impl ByteChunk for usize {
             *self >> (n * 8)
         } else {
             *self << (n * 8)
+        }
+    }
+
+    #[inline(always)]
+    fn shift_across(&self, n: Self) -> Self {
+        let size = (Self::SIZE - 1) * 8;
+        if cfg!(target_endian = "little") {
+            (*self >> size) | (n << 8)
+        } else {
+            (*self << size) | (n >> 8)
         }
     }
 
@@ -199,6 +212,11 @@ impl ByteChunk for x86_64::__m128i {
     }
 
     #[inline(always)]
+    fn shift_across(&self, _n: Self) -> Self {
+        todo!()
+    }
+
+    #[inline(always)]
     fn shr(&self, n: usize) -> Self {
         match n {
             0 => *self,
@@ -290,6 +308,11 @@ impl ByteChunk for aarch64::uint8x16_t {
                 _ => unreachable!(),
             }
         }
+    }
+
+    #[inline(always)]
+    fn shift_across(&self, n: Self) -> Self {
+        unsafe { aarch64::vextq_u8(*self, n, 15) }
     }
 
     #[inline(always)]
