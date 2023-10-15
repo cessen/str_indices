@@ -25,7 +25,7 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
     // Ensure the index is either a char boundary or is off the end of
     // the text.
     let mut i = byte_idx;
-    while Some(1) == bytes.get(i).map(is_trailing_byte) {
+    while bytes.get(i).is_some_and(is_trailing_byte) {
         i -= 1;
     }
 
@@ -51,7 +51,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], char_idx: usize) -> usize {
         // complexity hurts performance.
         let mut char_count = 0;
         for (i, byte) in text.iter().enumerate() {
-            char_count += is_leading_byte(byte);
+            char_count += is_leading_byte(byte) as usize;
             if char_count > char_idx {
                 return i;
             }
@@ -69,7 +69,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], char_idx: usize) -> usize {
 
     // Take care of any unaligned bytes at the beginning.
     for byte in start.iter() {
-        char_count += is_leading_byte(byte);
+        char_count += is_leading_byte(byte) as usize;
         if char_count > char_idx {
             return byte_count;
         }
@@ -90,8 +90,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], char_idx: usize) -> usize {
     }
 
     // Process the rest of chunks in the slow path.
-    let rest_idx = fast_path_chunks - fast_path_chunks % 4;
-    for chunk in middle[rest_idx..].iter() {
+    for chunk in middle[(fast_path_chunks - fast_path_chunks % 4)..].iter() {
         let new_char_count = char_count + T::SIZE - count_trailing_chunk(*chunk).sum_bytes();
         if new_char_count >= char_idx {
             break;
@@ -103,7 +102,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], char_idx: usize) -> usize {
     // Take care of any unaligned bytes at the end.
     let end = &text[byte_count..];
     for byte in end.iter() {
-        char_count += is_leading_byte(byte);
+        char_count += is_leading_byte(byte) as usize;
         if char_count > char_idx {
             break;
         }
@@ -118,7 +117,7 @@ pub(crate) fn count_impl<T: ByteChunk>(text: &[u8]) -> usize {
     if text.len() < T::SIZE {
         // Bypass the more complex routine for short strings, where the
         // complexity hurts performance.
-        return text.iter().map(is_leading_byte).sum();
+        return text.iter().map(|x| is_leading_byte(x) as usize).sum();
     }
     // Get `middle` for more efficient chunk-based counting.
     let (start, middle, end) = unsafe { text.align_to::<T>() };
@@ -126,7 +125,7 @@ pub(crate) fn count_impl<T: ByteChunk>(text: &[u8]) -> usize {
     let mut inv_count = 0;
 
     // Take care of unaligned bytes at the beginning.
-    inv_count += start.iter().map(is_trailing_byte).sum::<usize>();
+    inv_count += start.iter().filter(|x| is_trailing_byte(x)).count();
 
     // Take care of the middle bytes in big chunks. Loop unrolled.
     for chunks in middle.chunks_exact(4) {
@@ -143,19 +142,19 @@ pub(crate) fn count_impl<T: ByteChunk>(text: &[u8]) -> usize {
     inv_count += acc.sum_bytes();
 
     // Take care of unaligned bytes at the end.
-    inv_count += end.iter().map(is_trailing_byte).sum::<usize>();
+    inv_count += end.iter().filter(|x| is_trailing_byte(x)).count();
 
     text.len() - inv_count
 }
 
 #[inline(always)]
-fn is_leading_byte(byte: &u8) -> usize {
-    ((byte & 0xC0) != 0x80) as usize
+fn is_leading_byte(byte: &u8) -> bool {
+    (byte & 0xC0) != 0x80
 }
 
 #[inline(always)]
-fn is_trailing_byte(byte: &u8) -> usize {
-    ((byte & 0xC0) == 0x80) as usize
+fn is_trailing_byte(byte: &u8) -> bool {
+    (byte & 0xC0) == 0x80
 }
 
 #[inline(always)]
