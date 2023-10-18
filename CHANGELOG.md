@@ -4,6 +4,12 @@
 ## [Unreleased]
 
 
+## [0.4.2] - 2023-10-18
+
+- Add SIMD support for Aarch64, and corresponding performance improvements on that platform for all functions.
+- Performance improvements on x86-64 as well for `char` and LF counting/conversion functions.
+
+
 ## [0.4.1] - 2022-12-18
 
 - Updated readme with note about the `simd` feature flag.
@@ -52,7 +58,8 @@
 - Split off from [Ropey](https://crates.io/crates/ropey).
 
 
-[Unreleased]: https://github.com/cessen/str_indices/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/cessen/str_indices/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/cessen/str_indices/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/cessen/str_indices/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/cessen/str_indices/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/cessen/str_indices/compare/v0.3.1...v0.3.2
