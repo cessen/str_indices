@@ -4,6 +4,11 @@
 ## [Unreleased]
 
 
+## [0.4.3] - 2023-11-07
+
+- Fix regression in minimum supported Rust version.  No functional changes.
+
+
 ## [0.4.2] - 2023-10-18
 
 - Add SIMD support for Aarch64, and corresponding performance improvements on that platform for all functions.
@@ -58,7 +63,8 @@
 - Split off from [Ropey](https://crates.io/crates/ropey).
 
 
-[Unreleased]: https://github.com/cessen/str_indices/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/cessen/str_indices/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/cessen/str_indices/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/cessen/str_indices/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/cessen/str_indices/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/cessen/str_indices/compare/v0.3.2...v0.4.0
