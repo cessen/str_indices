@@ -25,7 +25,7 @@ pub fn from_byte_idx(text: &str, byte_idx: usize) -> usize {
     // Ensure the index is either a char boundary or is off the end of
     // the text.
     let mut i = byte_idx;
-    while bytes.get(i).is_some_and(is_trailing_byte) {
+    while Some(true) == bytes.get(i).map(is_trailing_byte) {
         i -= 1;
     }
 
