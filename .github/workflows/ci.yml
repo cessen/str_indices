@@ -10,8 +10,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-and-test-stable:
+  build-and-test:
     name: Build and test, Rust-stable
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          - "1.65"
     runs-on: ubuntu-latest
     steps:
       # Get a checkout and rust toolchain.
@@ -19,10 +24,10 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{matrix.toolchain}}
           override: true
 
       # Build and test
-      - run: cargo +stable build
-      - run: cargo +stable test
-      - run: cargo +stable bench --no-run
+      - run: cargo +${{matrix.toolchain}} build
+      - run: cargo +${{matrix.toolchain}} test
+      - run: cargo +${{matrix.toolchain}} bench --no-run
