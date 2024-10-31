@@ -69,6 +69,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
     let mut byte_count = 0;
     let mut break_count = 0;
 
+    // Take care of any unaligned bytes at the beginning.
     let mut last_was_cr = false;
     for byte in start.iter().copied() {
         let is_lf = byte == LF;
@@ -86,7 +87,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
         byte_count += 1;
     }
 
-    // Process the chunks 2 at a time
+    // Process the chunks 2 at a time.
     let mut chunk_count = 0;
     let mut prev = T::splat(last_was_cr as u8);
     for chunks in middle.chunks_exact(2) {
@@ -114,7 +115,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
         prev = cr_flags1;
     }
 
-    // Process the rest of the chunks
+    // Process the rest of the chunks.
     for chunk in middle[chunk_count..].iter() {
         let lf_flags = chunk.cmp_eq_byte(LF);
         let cr_flags = chunk.cmp_eq_byte(CR);
@@ -128,6 +129,7 @@ fn to_byte_idx_impl<T: ByteChunk>(text: &[u8], line_idx: usize) -> usize {
         prev = cr_flags;
     }
 
+    // Take care of any unaligned bytes at the end.
     last_was_cr = text.get(byte_count.saturating_sub(1)) == Some(&CR);
     for byte in text[byte_count..].iter().copied() {
         let is_lf = byte == LF;
@@ -166,12 +168,11 @@ fn count_breaks_impl<T: ByteChunk>(text: &[u8]) -> usize {
     for byte in start.iter().copied() {
         let is_lf = byte == LF;
         let is_cr = byte == CR;
-        if is_cr || (is_lf && !last_was_cr) {
-            count += 1;
-        }
+        count += (is_cr | (is_lf & !last_was_cr)) as usize;
         last_was_cr = is_cr;
     }
 
+    // Take care of the middle bytes in big chunks.
     let mut prev = T::splat(last_was_cr as u8);
     for chunks in middle.chunks_exact(2) {
         let lf_flags0 = chunks[0].cmp_eq_byte(LF);
@@ -203,9 +204,7 @@ fn count_breaks_impl<T: ByteChunk>(text: &[u8]) -> usize {
     for byte in end.iter().copied() {
         let is_lf = byte == LF;
         let is_cr = byte == CR;
-        if is_cr || (is_lf && !last_was_cr) {
-            count += 1;
-        }
+        count += (is_cr | (is_lf & !last_was_cr)) as usize;
         last_was_cr = is_cr;
     }
 
