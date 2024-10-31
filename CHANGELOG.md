@@ -4,6 +4,11 @@
 ## [Unreleased]
 
 
+## [0.4.4] - 2024-10-31
+
+- Performance improvements for all CRLF functions, thanks to @CeleritasCelery.
+
+
 ## [0.4.3] - 2023-11-07
 
 - Fix regression in minimum supported Rust version.  No functional changes.
@@ -63,7 +68,8 @@
 - Split off from [Ropey](https://crates.io/crates/ropey).
 
 
-[Unreleased]: https://github.com/cessen/str_indices/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/cessen/str_indices/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/cessen/str_indices/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/cessen/str_indices/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/cessen/str_indices/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/cessen/str_indices/compare/v0.4.0...v0.4.1
