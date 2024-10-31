@@ -105,11 +105,11 @@ impl ByteChunk for usize {
 
     #[inline(always)]
     fn shift_across(&self, n: Self) -> Self {
-        let size = (Self::SIZE - 1) * 8;
+        let shift_distance = (Self::SIZE - 1) * 8;
         if cfg!(target_endian = "little") {
-            (*self >> size) | (n << 8)
+            (*self >> shift_distance) | (n << 8)
         } else {
-            (*self << size) | (n >> 8)
+            (*self << shift_distance) | (n >> 8)
         }
     }
 
