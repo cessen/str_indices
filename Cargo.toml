@@ -2,6 +2,7 @@
 name = "str_indices"
 version = "0.4.4"
 edition = "2021"
+rust-version = "1.65"
 authors = ["Nathan Vegdahl <cessen@cessen.com>"]
 description = "Count and convert between indexing schemes on string slices."
 documentation = "https://docs.rs/str_indices"
@@ -20,8 +21,13 @@ simd = [] # Enable explicit SIMD optimizations on supported platforms.
 [dependencies]
 
 [dev-dependencies]
-proptest = "1.0"
+proptest = "~1.6"
 criterion = { version = "0.3", features = ["html_reports"] }
+
+# This is a transitive dependency of criterion--we don't use it directly. We
+# lock it to this exact version because newer versions don't work on our MSRV,
+# and thus CI fails if it's on a newer version.
+unicode-width = "=0.1.13"
 
 [profile.release]
 lto = "thin"
